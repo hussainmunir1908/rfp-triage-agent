@@ -103,6 +103,7 @@ export async function analyzeRfp(args: {
     const f = ex.facts[key];
     const stated = f.value.trim() && f.value.trim().toLowerCase() !== NOT_STATED.toLowerCase();
     facts.push({
+      id: `f_${key}`,
       label: FACT_LABELS[key],
       value: stated ? f.value.trim() : NOT_STATED,
       evidence: stated && f.quote.trim() ? check(f.page, f.quote) : null,

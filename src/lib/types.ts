@@ -171,6 +171,7 @@ export interface ReportRequirement {
 }
 
 export interface ReportFact {
+  id: string;
   label: string;
   value: string;
   evidence: Evidence | null;
