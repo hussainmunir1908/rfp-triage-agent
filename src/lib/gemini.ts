@@ -12,7 +12,6 @@ import { z } from "zod";
 const DEFAULT_MODELS = [
   "gemini-3.5-flash",
   "gemini-3.6-flash",
-  "gemini-3-flash-preview",
   "gemini-3.7-flash",
   "gemini-3.8-flash",
   "gemini-3.5-flash-lite",
@@ -24,11 +23,16 @@ const MODELS = (process.env.GEMINI_MODELS || DEFAULT_MODELS.join(","))
   .map((m) => m.trim())
   .filter(Boolean);
 
+/** A stalled request must not hang the analysis; time out and try the next model. */
+const REQUEST_TIMEOUT_MS = 75_000;
+
 const THINKING = (process.env.GEMINI_THINKING_LEVEL || "LOW").toUpperCase();
 const thinkingConfig =
   THINKING in ThinkingLevel
     ? { thinkingLevel: ThinkingLevel[THINKING as keyof typeof ThinkingLevel] }
     : undefined;
+
+const BUSY_MESSAGE = "The AI service is very busy right now. Please try again in a minute.";
 
 export class QuotaError extends Error {
   constructor() {
@@ -46,7 +50,7 @@ let client: GoogleGenAI | null = null;
 function getClient(): GoogleGenAI {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) throw new Error("GEMINI_API_KEY is not set on the server.");
-  client ??= new GoogleGenAI({ apiKey });
+  client ??= new GoogleGenAI({ apiKey, httpOptions: { timeout: REQUEST_TIMEOUT_MS } });
   return client;
 }
 
@@ -162,6 +166,7 @@ export async function generateJson<T>(opts: {
   }
 
   if (sawQuota && (!triedAny || statusOf(lastError) === 429)) throw new QuotaError();
-  const message = lastError instanceof Error ? lastError.message : String(lastError);
-  throw new Error(`Gemini request failed: ${message.slice(0, 300)}`);
+  if (statusOf(lastError) === 503) throw new Error(BUSY_MESSAGE);
+  console.error("[gemini] giving up:", lastError);
+  throw new Error("The AI model could not complete the request. Please try again in a moment.");
 }

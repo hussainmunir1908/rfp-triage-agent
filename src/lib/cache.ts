@@ -1,5 +1,4 @@
-import { createHash } from "node:crypto";
-import { analyzeRfp } from "./analyze";
+import { analyzeRfp, documentKey } from "./analyze";
 import type { TriageReport } from "./types";
 
 /**
@@ -10,18 +9,12 @@ import type { TriageReport } from "./types";
 const MAX_ENTRIES = 25;
 const cache = new Map<string, TriageReport>();
 
-function keyFor(pages: string[]): string {
-  const hash = createHash("sha256");
-  for (const p of pages) hash.update(p).update("\u0000");
-  return hash.digest("hex");
-}
-
 export async function analyzeWithCache(args: {
   pages: string[];
   fileName: string;
   onProgress?: (stage: string, message: string) => void;
 }): Promise<TriageReport> {
-  const key = keyFor(args.pages);
+  const key = documentKey(args.pages);
   const hit = cache.get(key);
   if (hit) {
     args.onProgress?.("judge", "Found a saved analysis of this exact document.");
