@@ -1,6 +1,7 @@
 import { generateJson } from "./gemini";
 import { dateTextInQuote, resolveDate, statusFor } from "./dates";
 import { EXTRACTION_SYSTEM, JUDGE_SYSTEM, extractionPrompt } from "./prompts";
+import { clamp, decide } from "./score";
 import { buildPageIndex, checkQuote } from "./verify";
 import {
   NOT_STATED,
@@ -36,12 +37,6 @@ const FACT_LABELS: Record<keyof Extraction["facts"], string> = {
 
 export function pagesToPrompt(pages: string[]): string {
   return pages.map((text, i) => `=== PAGE ${i + 1} ===\n${text.trim()}`).join("\n\n");
-}
-
-const BASE_SCORE = 5;
-
-function clamp(n: number, lo: number, hi: number) {
-  return Math.max(lo, Math.min(hi, n));
 }
 
 export async function analyzeRfp(args: {
@@ -219,15 +214,11 @@ export async function analyzeRfp(args: {
     refs: refs(d.evidence_ids),
   }));
 
-  /* Decision rules live in code so the call is consistent and explainable. */
-  const raw = BASE_SCORE + factors.reduce((n, f) => n + f.impact, 0);
-  let fitScore = clamp(Math.round(raw), 0, 10);
-  const outOfDomain =
-    ex.work_category === "construction_or_facilities" || ex.work_category === "manufacturing_or_supplies";
-  if (dealBreakers.length > 0) fitScore = Math.min(fitScore, 3);
-  if (outOfDomain) fitScore = Math.min(fitScore, 2);
-  const decision: "BID" | "NO_BID" =
-    dealBreakers.length > 0 || outOfDomain || fitScore < 6 ? "NO_BID" : "BID";
+  const { fitScore, decision, fastNoBid } = decide({
+    impacts: factors.map((f) => f.impact),
+    dealBreakers: dealBreakers.length,
+    workCategory: ex.work_category,
+  });
 
   const proposalDates = deadlines.filter((d) => d.kind === "proposal_due" && d.status !== "undated");
   const expired = proposalDates.length > 0 && proposalDates.every((d) => d.status === "expired");
@@ -239,7 +230,7 @@ export async function analyzeRfp(args: {
     page_count: pages.length,
     decision,
     fit_score: fitScore,
-    fast_no_bid: outOfDomain,
+    fast_no_bid: fastNoBid,
     summary: ex.summary.trim(),
     facts,
     deadlines,

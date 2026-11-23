@@ -1,36 +1,170 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# RFP Triage Agent
 
-## Getting Started
+Upload a government RFP (PDF) and get back a bid / no-bid recommendation in about a minute. Every fact in the
+report links to the page it came from, and the quotes behind those facts are checked against the PDF by code.
 
-First, run the development server:
+Built for the idiaz.io internship challenge.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+- **Live app:** _added after deployment_
+- **Stack:** Next.js (App Router, TypeScript), Tailwind CSS, Google Gemini, deployed on Vercel
+
+## What it does
+
+1. **Reads the whole document.** The PDF is parsed in the browser, page by page, and tagged `=== PAGE n ===`.
+2. **Extracts facts.** Agency, scope, contract type and value, place of performance, how to submit.
+3. **Finds every date.** Proposal deadline, Q&A cut-off, site visits, award and start dates, as real calendar dates.
+4. **Lists the must-haves.** Certifications, set-asides, clearances, past performance, staffing, insurance, location rules.
+5. **Scores the fit** from 0 to 10 against the idiaz.io profile, with a one-line reason for each factor.
+6. **Makes the call.** Bid or no-bid, the three strongest reasons, deal-breakers, what would change the call, and
+   questions to ask the agency.
+
+Ground rules the agent follows: only the document is used, missing information is written as "Not stated",
+ambiguous passages are flagged instead of quietly resolved, and work that clearly is not ours (such as
+construction) gets a fast no-bid.
+
+The same report is available as JSON from the UI (download or copy) and from the API.
+
+## Bonus features
+
+### 1. Evidence-linked report
+
+Language models can sound right while being wrong, which is the worst failure for a tool that decides where a
+team spends a week of proposal writing. So the agent does not ask to be trusted; it shows its work.
+
+- The model must return, for every fact, date and requirement, the **page number and a verbatim quote**.
+- Plain code then looks for that quote in the extracted text of the PDF (`src/lib/verify.ts`). It tries an
+  exact match on the cited page, then the neighbouring pages, then a page-spanning match, then a close
+  match that tolerates extraction noise. Anything it cannot find is shown as **unverified** instead of being
+  dropped quietly.
+- Dates get a second check (`src/lib/dates.ts`): the date text is re-parsed from the document itself and
+  compared with the model's own conversion. If they disagree, the document wins and the report says it
+  corrected the date.
+- In the UI, every item has a small page badge. Clicking it opens the **original PDF page** with the quoted
+  passage outlined, so a reviewer can confirm any claim in a couple of seconds.
+- The header shows how many cited quotes were found, for example "24 of 24 cited quotes found in the document".
+
+### 2. Expired-deadline flags
+
+Public RFPs are often found after they have closed. Each date is compared with today's date in the viewer's
+browser and marked **Expired N days ago**, **Due today** or **In N days**. If every proposal deadline has
+passed, the report shows a clear "This RFP has already closed" banner, so nobody spends time on something
+that cannot be bid on. The fit assessment is still shown, because it remains useful for similar future work.
+
+## How it works
+
+```
+Browser                                   Server (Next.js route, Vercel)
+-------                                   ------------------------------
+PDF file
+  |  pdf.js reads the text per page
+  v
+pages[] -------------- POST /api/analyze ----> 1. Extract    Gemini, JSON schema, quotes + pages
+                                                2. Verify     code checks quotes, pages, dates
+progress events <------ streamed NDJSON ------  3. Judge      Gemini scores factors from the verified items
+                                                4. Decide     code turns factor impacts into score + call
+report + PDF viewer
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Design decisions:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+- **Parse in the browser.** Vercel limits request bodies to about 4.5 MB, and a 100-page RFP can exceed that.
+  Sending only the extracted text (a few hundred KB) avoids the limit and keeps the PDF on the user's machine.
+  The same text-based path means the viewer can render the real pages for evidence.
+- **One long-context call, not chunking.** Gemini reads the entire document at once, so a requirement in an
+  appendix can be weighed against the scope on page 3. Chunking tends to lose exactly those links.
+- **The judge never sees the PDF.** It reasons over the already verified extraction, which keeps it from
+  inventing facts and makes its citations point at items the reader can open.
+- **The decision rule lives in code.** The model proposes factors with an impact from -3 to +3. Code adds them
+  to a base score of 5 and applies the rules: a deal-breaker caps the score at 3, construction or goods caps it at
+  2, and a bid needs a score of 6 or more. The score is therefore reproducible and easy to explain.
+- **Structured output.** The model is constrained to a JSON schema (defined once with zod and used for both the
+  request and validation), so the UI and the API always receive the same shape.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Models and free-tier limits
 
-## Learn More
+The free Gemini tier allows only a small number of requests per day for each model (about 20 at the time of
+writing), and individual models are sometimes overloaded. The agent therefore uses **two model calls per RFP**
+and keeps a pool of models in `src/lib/gemini.ts`. When a model reports an exhausted daily quota it is skipped,
+and the next one is used. Overloaded models are retried in short sweeps. Repeating the same document is served
+from a small in-memory cache and costs no request. If every model is exhausted the UI says so plainly.
 
-To learn more about Next.js, take a look at the following resources:
+Set `GEMINI_MODELS` to a comma-separated list to change the pool, and `GEMINI_THINKING_LEVEL`
+(`MINIMAL`, `LOW`, `MEDIUM`, `HIGH`) to trade speed for depth. The default is `LOW`: in testing it was about three
+times faster than `MEDIUM` with similar extraction quality.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Run it locally
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Requires Node 20 or newer and a free Gemini API key from [Google AI Studio](https://aistudio.google.com/apikey).
 
-## Deploy on Vercel
+```bash
+npm install
+cp .env.example .env.local     # then put your key in .env.local
+npm run dev
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Open http://localhost:3000 and drop in a PDF.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Variable | Required | Purpose |
+| --- | --- | --- |
+| `GEMINI_API_KEY` | yes | Gemini API key. Never committed. |
+| `GEMINI_MODELS` | no | Ordered, comma-separated model pool. |
+| `GEMINI_THINKING_LEVEL` | no | `MINIMAL`, `LOW` (default), `MEDIUM` or `HIGH`. |
+
+## API
+
+`POST /api/analyze`
+
+- `application/json` with `{ "fileName": "rfp.pdf", "pages": ["text of page 1", "..."] }`
+- or `multipart/form-data` with a `file` field containing a PDF of up to 4 MB
+
+Add `?stream=1` to receive progress as newline-delimited JSON events (`stage`, `result`, `error`). Without it,
+the response is the final report as JSON.
+
+```jsonc
+{
+  "decision": "BID" | "NO_BID",
+  "fit_score": 0,                       // 0 to 10
+  "deadlines": [{ "what": "", "date": "2025-04-30", "status": "expired", "evidence": { "page": 2, "quote": "", "verified": true } }],
+  "requirements": [{ "category": "", "text": "", "mandatory": true, "evidence": {} }],
+  "reasons": [{ "text": "", "refs": [] }],   // the three strongest
+  "factors": [], "deal_breakers": [], "would_change_mind": [], "open_questions": [],
+  "ambiguities": [], "summary": "", "facts": [], "verification": {}
+}
+```
+
+## Deploy
+
+The app is a standard Next.js project. On Vercel, import the repository and add `GEMINI_API_KEY` under
+Project Settings, Environment Variables. The analysis route sets `maxDuration = 300`, which the Hobby plan allows
+with Fluid Compute.
+
+## Project layout
+
+```
+src/
+  app/
+    api/analyze/route.ts   API route (JSON, multipart, streaming)
+    page.tsx               entry page
+  components/
+    Analyzer.tsx           upload, progress and state
+    Report.tsx             the report sections
+    EvidenceViewer.tsx     PDF page with highlighted quote
+  lib/
+    analyze.ts             the pipeline: extract, verify, judge, decide
+    gemini.ts              model pool, structured output, quota handling
+    verify.ts              quote and page checking
+    dates.ts               date parsing, correction, expiry status
+    prompts.ts             prompts and the company profile
+    types.ts               schemas and report types
+    pdf-client.ts          browser PDF reading and page rendering
+    pdf-server.ts          PDF text extraction for the multipart API
+    cache.ts               in-memory result cache
+```
+
+## Limits
+
+- Text-based PDFs only. Scanned documents need OCR, which is out of scope.
+- The company profile is fixed in `src/lib/prompts.ts`. Set-asides are treated as unknown unless the document
+  says otherwise.
+- A language model still reads the document. The evidence checks make mistakes visible; they do not make the
+  extraction perfect, so treat the report as a fast first pass for a human to confirm.
