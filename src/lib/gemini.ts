@@ -1,11 +1,45 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 import { z } from "zod";
 
-export const PRIMARY_MODEL = process.env.GEMINI_MODEL || "gemini-3.5-flash";
-const FALLBACKS = (process.env.GEMINI_FALLBACK_MODELS || "gemini-3.6-flash,gemini-3.1-flash-lite")
+/**
+ * Gemini access with a small model pool.
+ *
+ * The free tier limits each model separately (for example 20 requests per day),
+ * so a single model runs dry quickly. We keep an ordered list of models, skip
+ * the ones that reported an exhausted quota, and move on to the next.
+ */
+
+const DEFAULT_MODELS = [
+  "gemini-3.5-flash",
+  "gemini-3.6-flash",
+  "gemini-3-flash-preview",
+  "gemini-3.7-flash",
+  "gemini-3.8-flash",
+  "gemini-3.5-flash-lite",
+  "gemini-3.1-flash-lite",
+];
+
+const MODELS = (process.env.GEMINI_MODELS || DEFAULT_MODELS.join(","))
   .split(",")
   .map((m) => m.trim())
   .filter(Boolean);
+
+const THINKING = (process.env.GEMINI_THINKING_LEVEL || "LOW").toUpperCase();
+const thinkingConfig =
+  THINKING in ThinkingLevel
+    ? { thinkingLevel: ThinkingLevel[THINKING as keyof typeof ThinkingLevel] }
+    : undefined;
+
+export class QuotaError extends Error {
+  constructor() {
+    super(
+      "The free AI quota is used up for now. Daily limits reset at midnight Pacific time, please try again later.",
+    );
+  }
+}
+
+/** model -> time (ms since epoch) before which we should not call it again */
+const unavailableUntil = new Map<string, number>();
 
 let client: GoogleGenAI | null = null;
 
@@ -29,15 +63,24 @@ function statusOf(err: unknown): number | undefined {
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+interface QuotaInfo {
+  daily: boolean;
+  retryAfterMs: number;
+}
+
+function readQuotaError(err: unknown): QuotaInfo {
+  const text = String((err as Error)?.message ?? err);
+  const delay = /"retryDelay"\s*:\s*"(\d+(?:\.\d+)?)s"/.exec(text);
+  const retryAfterMs = delay ? Math.ceil(Number(delay[1]) * 1000) : 60_000;
+  const daily = /PerDay|per day/i.test(text) || retryAfterMs > 120_000;
+  return { daily, retryAfterMs };
+}
+
 export interface GenerateResult<T> {
   data: T;
   model: string;
 }
 
-/**
- * Structured generation. Retries transient errors and falls back to other
- * models if the primary one is overloaded or rate limited.
- */
 export async function generateJson<T>(opts: {
   system: string;
   prompt: string;
@@ -45,41 +88,80 @@ export async function generateJson<T>(opts: {
   maxOutputTokens?: number;
 }): Promise<GenerateResult<T>> {
   const ai = getClient();
-  const models = [PRIMARY_MODEL, ...FALLBACKS.filter((m) => m !== PRIMARY_MODEL)];
   const responseJsonSchema = jsonSchemaFor(opts.schema);
   let lastError: unknown;
+  let sawQuota = false;
+  let triedAny = false;
 
-  for (const model of models) {
-    for (let attempt = 0; attempt < 3; attempt++) {
-      try {
-        const res = await ai.models.generateContent({
-          model,
-          contents: opts.prompt,
-          config: {
-            systemInstruction: opts.system,
-            temperature: 0,
-            maxOutputTokens: opts.maxOutputTokens ?? 32768,
-            responseMimeType: "application/json",
-            responseJsonSchema,
-          },
-        });
-        const raw = res.text;
-        if (!raw) throw new Error("Model returned an empty response");
-        const parsed = opts.schema.safeParse(JSON.parse(raw));
-        if (!parsed.success) {
-          throw new Error(`Model output did not match the schema: ${parsed.error.message.slice(0, 300)}`);
+  // Overloaded models (503) usually recover within seconds, so sweep the pool a few times.
+  for (let round = 0; round < 3; round++) {
+    let transient = false;
+    for (const model of MODELS) {
+      if ((unavailableUntil.get(model) ?? 0) > Date.now()) {
+        sawQuota = true;
+        continue;
+      }
+      triedAny = true;
+
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const started = Date.now();
+        try {
+          const res = await ai.models.generateContent({
+            model,
+            contents: opts.prompt,
+            config: {
+              systemInstruction: opts.system,
+              temperature: 0,
+              maxOutputTokens: opts.maxOutputTokens ?? 32768,
+              responseMimeType: "application/json",
+              responseJsonSchema,
+              ...(thinkingConfig ? { thinkingConfig } : {}),
+            },
+          });
+          const raw = res.text;
+          if (!raw) throw new Error("Model returned an empty response");
+          const parsed = opts.schema.safeParse(JSON.parse(raw));
+          if (!parsed.success) {
+            throw new Error(`Model output did not match the schema: ${parsed.error.message.slice(0, 300)}`);
+          }
+          console.info(`[gemini] ${model} ok in ${Date.now() - started}ms`);
+          return { data: parsed.data, model };
+        } catch (err) {
+          lastError = err;
+          const status = statusOf(err);
+          console.warn(
+            `[gemini] ${model} failed (${status ?? "no status"}): ${String((err as Error)?.message ?? err).slice(0, 140)}`,
+          );
+
+          if (status === 429) {
+            sawQuota = true;
+            const q = readQuotaError(err);
+            if (q.daily) {
+              unavailableUntil.set(model, Date.now() + Math.min(q.retryAfterMs, 6 * 3600_000));
+              break; // next model
+            }
+            if (attempt === 0 && q.retryAfterMs <= 25_000) {
+              await sleep(q.retryAfterMs + 250);
+              continue; // per-minute limit: wait it out once
+            }
+            unavailableUntil.set(model, Date.now() + 60_000);
+            break;
+          }
+          if (status === 404 || status === 400 || status === 403) {
+            unavailableUntil.set(model, Date.now() + 3600_000); // not usable with this key
+            break;
+          }
+          // 5xx, malformed output, network: try the next model, sweep again later
+          transient = true;
+          break;
         }
-        return { data: parsed.data, model };
-      } catch (err) {
-        lastError = err;
-        const status = statusOf(err);
-        const transient = status === 429 || status === 500 || status === 503 || status === undefined;
-        if (status === 404 || status === 400 || status === 401 || status === 403) break;
-        if (!transient) break;
-        await sleep(1500 * 2 ** attempt);
       }
     }
+    if (!transient) break;
+    await sleep(4000 * (round + 1));
   }
+
+  if (sawQuota && (!triedAny || statusOf(lastError) === 429)) throw new QuotaError();
   const message = lastError instanceof Error ? lastError.message : String(lastError);
   throw new Error(`Gemini request failed: ${message.slice(0, 300)}`);
 }

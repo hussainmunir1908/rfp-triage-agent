@@ -14,7 +14,10 @@ let pdfjsPromise: Promise<PdfJs> | null = null;
 
 async function loadPdfjs(): Promise<PdfJs> {
   pdfjsPromise ??= import("pdfjs-dist").then((mod) => {
-    mod.GlobalWorkerOptions.workerSrc = new URL("pdfjs-dist/build/pdf.worker.min.mjs", import.meta.url).toString();
+    mod.GlobalWorkerOptions.workerSrc = new URL(
+      "pdfjs-dist/build/pdf.worker.min.mjs",
+      import.meta.url,
+    ).toString();
     return mod;
   });
   return pdfjsPromise;
@@ -49,7 +52,12 @@ export async function extractPages(
       text += item.str;
       text += item.hasEOL ? "\n" : " ";
     }
-    pages.push(text.replace(/[ \t]+\n/g, "\n").replace(/[ \t]{2,}/g, " ").trim());
+    pages.push(
+      text
+        .replace(/[ \t]+\n/g, "\n")
+        .replace(/[ \t]{2,}/g, " ")
+        .trim(),
+    );
     page.cleanup();
     onPage?.(i, pdf.numPages);
   }

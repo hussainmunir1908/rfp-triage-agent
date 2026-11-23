@@ -46,6 +46,32 @@ export const workCategories = [
   "other",
 ] as const;
 
+const deadlineItemSchema = z.object({
+  what: z.string().describe("Short label, e.g. 'Proposal due'"),
+  kind: z.enum(deadlineKinds),
+  date_text: z.string().describe("The date exactly as written in the document"),
+  date_iso: z
+    .string()
+    .describe("YYYY-MM-DD if the document gives a calendar date, otherwise an empty string"),
+  time_text: z.string().describe("Time and timezone as written, or empty"),
+  page: z.number().int(),
+  quote: z.string().describe("Verbatim excerpt containing the date"),
+});
+
+const requirementItemSchema = z.object({
+  category: z.enum(requirementCategories),
+  text: z.string().describe("The requirement in one clear sentence"),
+  mandatory: z.boolean().describe("true if the document says must / shall / required"),
+  page: z.number().int(),
+  quote: z.string().describe("Verbatim excerpt stating the requirement"),
+});
+
+const ambiguityItemSchema = z.object({
+  issue: z.string().describe("What is unclear, conflicting or open to two readings"),
+  page: z.number().int(),
+  quote: z.string(),
+});
+
 export const extractionSchema = z.object({
   summary: z
     .string()
@@ -60,35 +86,9 @@ export const extractionSchema = z.object({
     place_of_performance: factSchema,
     submission_method: factSchema,
   }),
-  deadlines: z.array(
-    z.object({
-      what: z.string().describe("Short label, e.g. 'Proposal due'"),
-      kind: z.enum(deadlineKinds),
-      date_text: z.string().describe("The date exactly as written in the document"),
-      date_iso: z
-        .string()
-        .describe("YYYY-MM-DD if the document gives a calendar date, otherwise an empty string"),
-      time_text: z.string().describe("Time and timezone as written, or empty"),
-      page: z.number().int(),
-      quote: z.string().describe("Verbatim excerpt containing the date"),
-    }),
-  ),
-  requirements: z.array(
-    z.object({
-      category: z.enum(requirementCategories),
-      text: z.string().describe("The requirement in one clear sentence"),
-      mandatory: z.boolean().describe("true if the document says must / shall / required"),
-      page: z.number().int(),
-      quote: z.string().describe("Verbatim excerpt stating the requirement"),
-    }),
-  ),
-  ambiguities: z.array(
-    z.object({
-      issue: z.string().describe("What is unclear, conflicting or open to two readings"),
-      page: z.number().int(),
-      quote: z.string(),
-    }),
-  ),
+  deadlines: z.array(deadlineItemSchema),
+  requirements: z.array(requirementItemSchema),
+  ambiguities: z.array(ambiguityItemSchema),
   work_category: z.enum(workCategories).describe("Best description of the work being procured"),
 });
 
@@ -123,9 +123,7 @@ export const judgementSchema = z.object({
       }),
     )
     .describe("The three strongest reasons for the recommendation"),
-  would_change_mind: z
-    .array(z.string())
-    .describe("Concrete facts that would flip the recommendation"),
+  would_change_mind: z.array(z.string()).describe("Concrete facts that would flip the recommendation"),
   open_questions: z.array(z.string()).describe("Questions to ask the agency"),
   recommendation_summary: z.string().describe("Two sentences on the call and why"),
 });
@@ -232,6 +230,8 @@ export interface TriageReport {
   verification: VerificationStats;
   /** True when every proposal-deadline found in the document is already in the past. */
   expired: boolean;
+  /** True when this exact document was analysed before and no new model call was made. */
+  cached?: boolean;
 }
 
 export type StreamEvent =

@@ -27,7 +27,9 @@ export function Section({
 }
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <div className={`rounded-xl border border-slate-200 bg-white p-4 shadow-sm ${className}`}>{children}</div>;
+  return (
+    <div className={`rounded-xl border border-slate-200 bg-white p-4 shadow-sm ${className}`}>{children}</div>
+  );
 }
 
 type Tone = "slate" | "green" | "red" | "amber" | "blue";

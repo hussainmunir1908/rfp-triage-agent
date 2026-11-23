@@ -21,7 +21,14 @@ export function datesIn(text: string): string[] {
     const d = r.start.get("day");
     // Only explicit calendar dates that spell out the year. This skips relative
     // phrases ("within 10 days from award", "next Friday") and yearless dates.
-    if (y && m && d && /\b(19|20)\d{2}\b/.test(r.text) && r.start.isCertain("month") && r.start.isCertain("day")) {
+    if (
+      y &&
+      m &&
+      d &&
+      /\b(19|20)\d{2}\b/.test(r.text) &&
+      r.start.isCertain("month") &&
+      r.start.isCertain("day")
+    ) {
       out.push(toIso(y, m, d));
     }
   }
@@ -72,10 +79,7 @@ function startOfDay(d: Date): number {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
 }
 
-export function statusFor(
-  iso: string,
-  now: Date,
-): { status: DeadlineStatus; days: number | null } {
+export function statusFor(iso: string, now: Date): { status: DeadlineStatus; days: number | null } {
   if (!ISO.test(iso)) return { status: "undated", days: null };
   const [y, m, d] = iso.split("-").map(Number);
   const target = new Date(y, m - 1, d).getTime();

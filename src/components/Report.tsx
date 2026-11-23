@@ -48,7 +48,8 @@ export function Report({ report }: { report: TriageReport }) {
       report.deadlines
         .map((d) => ({ ...d, live: statusFor(d.date, now) }))
         .sort((a, b) => {
-          if (a.date !== b.date && a.live.days !== null && b.live.days !== null) return a.live.days - b.live.days;
+          if (a.date !== b.date && a.live.days !== null && b.live.days !== null)
+            return a.live.days - b.live.days;
           if (a.live.days === null && b.live.days !== null) return 1;
           if (a.live.days !== null && b.live.days === null) return -1;
           return (KIND_ORDER[a.kind] ?? 9) - (KIND_ORDER[b.kind] ?? 9);
@@ -95,6 +96,7 @@ export function Report({ report }: { report: TriageReport }) {
             </span>
             {report.fast_no_bid ? <Badge tone="red">Fast no-bid: not our kind of work</Badge> : null}
             {proposalExpired ? <Badge tone="red">Proposal deadline passed</Badge> : null}
+            {report.cached ? <Badge tone="blue">Saved result, no new AI call</Badge> : null}
           </div>
           <p className="mt-2 text-sm leading-relaxed text-slate-700">{report.recommendation_summary}</p>
           <p className="mt-2 text-xs text-slate-500">
@@ -108,13 +110,17 @@ export function Report({ report }: { report: TriageReport }) {
         <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
           <p className="font-semibold">This RFP has already closed.</p>
           <p className="mt-1">
-            The proposal deadline was {formatDate(lastProposal.date)} ({plural(Math.abs(lastProposal.live.days ?? 0), "day")}{" "}
-            ago). The fit assessment below is still valid for judging similar work, but there is nothing left to bid on
-            unless the agency reissues or extends it.
+            The proposal deadline was {formatDate(lastProposal.date)} (
+            {plural(Math.abs(lastProposal.live.days ?? 0), "day")} ago). The fit assessment below is still
+            valid for judging similar work, but there is nothing left to bid on unless the agency reissues or
+            extends it.
           </p>
         </div>
       ) : anyExpired ? (
-        <div role="status" className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <div
+          role="status"
+          className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
+        >
           Some dates in this document have already passed. They are marked in the key dates table.
         </div>
       ) : null}
@@ -126,8 +132,8 @@ export function Report({ report }: { report: TriageReport }) {
             {v.verified} of {v.total} cited quotes found in the document
           </p>
           <p className="text-xs text-slate-500">
-            Every fact below links to the page it came from. The quotes are checked against the PDF text by code, not
-            by the model.
+            Every fact below links to the page it came from. The quotes are checked against the PDF text by
+            code, not by the model.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -151,7 +157,9 @@ export function Report({ report }: { report: TriageReport }) {
                   {f.label}
                   {f.evidence ? <EvidenceLink evidence={f.evidence} label={f.label} /> : null}
                 </dt>
-                <dd className={`mt-0.5 text-sm ${f.value === "Not stated" ? "text-slate-400" : "text-slate-900"}`}>
+                <dd
+                  className={`mt-0.5 text-sm ${f.value === "Not stated" ? "text-slate-400" : "text-slate-900"}`}
+                >
                   {f.value}
                 </dd>
               </div>
@@ -185,7 +193,9 @@ export function Report({ report }: { report: TriageReport }) {
                       {d.date !== "Not stated" ? (
                         <>
                           <span className="text-slate-900">{formatDate(d.date)}</span>
-                          {d.time_text ? <span className="block text-xs text-slate-500">{d.time_text}</span> : null}
+                          {d.time_text ? (
+                            <span className="block text-xs text-slate-500">{d.time_text}</span>
+                          ) : null}
                         </>
                       ) : (
                         <span className="text-slate-600">{d.date_text || "Not stated"}</span>
@@ -216,13 +226,17 @@ export function Report({ report }: { report: TriageReport }) {
           <div className="space-y-3">
             {grouped.map(([category, items]) => (
               <Card key={category}>
-                <h3 className="mb-2 text-sm font-semibold text-slate-900">{CATEGORY_LABELS[category] ?? category}</h3>
+                <h3 className="mb-2 text-sm font-semibold text-slate-900">
+                  {CATEGORY_LABELS[category] ?? category}
+                </h3>
                 <ul className="divide-y divide-slate-100">
                   {items.map((r) => (
                     <li key={r.id} className="flex flex-wrap items-start justify-between gap-2 py-2 text-sm">
                       <span className="min-w-0 flex-1 text-slate-800">
                         {r.text}{" "}
-                        <Badge tone={r.mandatory ? "red" : "slate"}>{r.mandatory ? "Mandatory" : "Optional"}</Badge>
+                        <Badge tone={r.mandatory ? "red" : "slate"}>
+                          {r.mandatory ? "Mandatory" : "Optional"}
+                        </Badge>
                       </span>
                       <EvidenceLink evidence={r.evidence} label={r.text} />
                     </li>

@@ -44,7 +44,9 @@ export function EvidenceViewer({ pdf, pageCount, target, onClose }: Props) {
     const canvas = canvasRef.current;
     const job = renderQueue.current
       .catch(() => undefined)
-      .then(() => (cancelled ? null : renderPageWithHighlight(pdf, page, canvas, quote, width, controller.signal)));
+      .then(() =>
+        cancelled ? null : renderPageWithHighlight(pdf, page, canvas, quote, width, controller.signal),
+      );
     renderQueue.current = job;
     job
       .then((res) => {
@@ -116,7 +118,8 @@ export function EvidenceViewer({ pdf, pageCount, target, onClose }: Props) {
         </blockquote>
         {!ev.verified ? (
           <p className="mt-2 text-xs text-amber-800">
-            This text could not be matched to the PDF, so treat the claim as unconfirmed and check the document.
+            This text could not be matched to the PDF, so treat the claim as unconfirmed and check the
+            document.
           </p>
         ) : null}
       </div>
@@ -145,7 +148,9 @@ export function EvidenceViewer({ pdf, pageCount, target, onClose }: Props) {
 
       <div ref={bodyRef} className="relative flex-1 overflow-auto bg-slate-100 p-4">
         {!pdf ? (
-          <p className="text-sm text-slate-600">The original PDF is not loaded, only the quote is available.</p>
+          <p className="text-sm text-slate-600">
+            The original PDF is not loaded, only the quote is available.
+          </p>
         ) : (
           <div className="relative mx-auto w-fit bg-white shadow">
             <canvas ref={canvasRef} className="block" />
@@ -166,7 +171,8 @@ export function EvidenceViewer({ pdf, pageCount, target, onClose }: Props) {
         {error ? <p className="mt-3 text-sm text-red-700">{error}</p> : null}
         {!loading && !found && page === ev.page ? (
           <p className="mt-3 text-xs text-slate-600">
-            The page is shown, but the exact words could not be outlined on it. Use the quote above to find them.
+            The page is shown, but the exact words could not be outlined on it. Use the quote above to find
+            them.
           </p>
         ) : null}
       </div>

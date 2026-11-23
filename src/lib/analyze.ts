@@ -54,6 +54,7 @@ export async function analyzeRfp(args: {
   const now = args.now ?? new Date();
   const progress: Progress = args.onProgress ?? (() => {});
 
+  const t0 = Date.now();
   const textLength = pages.reduce((n, p) => n + p.length, 0);
   if (pages.length === 0 || textLength < 200) {
     throw new Error(
@@ -64,14 +65,17 @@ export async function analyzeRfp(args: {
     throw new Error(`Document is too large (limit ${MAX_PAGES} pages / ${MAX_CHARS} characters).`);
   }
 
+  const pagesText = pagesToPrompt(pages);
+
   /* 1. Extract ---------------------------------------------------- */
   progress("extract", `Reading all ${pages.length} pages and extracting facts, dates and requirements...`);
   const extraction = await generateJson({
     system: EXTRACTION_SYSTEM,
-    prompt: extractionPrompt(pagesToPrompt(pages), pages.length),
+    prompt: extractionPrompt(pagesText, pages.length),
     schema: extractionSchema,
   });
   const ex = extraction.data;
+  const extractMs = Date.now() - t0;
 
   /* 2. Verify evidence in code ------------------------------------ */
   progress("verify", "Checking every quote and date against the document text...");
@@ -184,6 +188,9 @@ export async function analyzeRfp(args: {
     maxOutputTokens: 8192,
   });
   const j = judged.data;
+  console.info(
+    `[analyze] ${fileName}: extract ${extractMs}ms, total ${Date.now() - t0}ms, model ${judged.model}`,
+  );
 
   const labelFor = (id: string): string | null => {
     if (factIds[id]) return factIds[id];
@@ -219,7 +226,8 @@ export async function analyzeRfp(args: {
     ex.work_category === "construction_or_facilities" || ex.work_category === "manufacturing_or_supplies";
   if (dealBreakers.length > 0) fitScore = Math.min(fitScore, 3);
   if (outOfDomain) fitScore = Math.min(fitScore, 2);
-  const decision: "BID" | "NO_BID" = dealBreakers.length > 0 || outOfDomain || fitScore < 6 ? "NO_BID" : "BID";
+  const decision: "BID" | "NO_BID" =
+    dealBreakers.length > 0 || outOfDomain || fitScore < 6 ? "NO_BID" : "BID";
 
   const proposalDates = deadlines.filter((d) => d.kind === "proposal_due" && d.status !== "undated");
   const expired = proposalDates.length > 0 && proposalDates.every((d) => d.status === "expired");

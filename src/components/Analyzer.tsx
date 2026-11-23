@@ -157,7 +157,8 @@ export function Analyzer() {
             <p className="text-xs font-semibold uppercase tracking-widest text-orange-600">idiaz.io</p>
             <h1 className="mt-1 text-3xl font-bold tracking-tight text-slate-900">RFP Triage Agent</h1>
             <p className="mt-1 max-w-xl text-sm text-slate-600">
-              Drop in an RFP and get a bid or no-bid call, with every fact linked back to the page it came from.
+              Drop in an RFP and get a bid or no-bid call, with every fact linked back to the page it came
+              from.
             </p>
           </div>
           {phase.name !== "idle" ? (
@@ -211,7 +212,10 @@ export function Analyzer() {
               </div>
             </div>
             {phase.name === "error" ? (
-              <p role="alert" className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
+              <p
+                role="alert"
+                className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800"
+              >
                 {phase.message}
               </p>
             ) : null}
@@ -220,7 +224,9 @@ export function Analyzer() {
 
         {phase.name === "working" ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-            <p className="text-sm font-semibold text-slate-900">Analyzing, this usually takes under a minute</p>
+            <p className="text-sm font-semibold text-slate-900">
+              Analyzing, this usually takes under a minute
+            </p>
             <ol className="mt-4 space-y-3">
               {phase.steps.map((s) => (
                 <li key={s.key} className="flex items-center gap-3 text-sm">
@@ -235,7 +241,9 @@ export function Analyzer() {
                   >
                     {s.state === "done" ? "✓" : ""}
                   </span>
-                  <span className={s.state === "pending" ? "text-slate-400" : "text-slate-800"}>{s.label}</span>
+                  <span className={s.state === "pending" ? "text-slate-400" : "text-slate-800"}>
+                    {s.label}
+                  </span>
                 </li>
               ))}
             </ol>

@@ -1,4 +1,6 @@
-import { analyzeRfp, MAX_PAGES } from "@/lib/analyze";
+import { MAX_PAGES } from "@/lib/analyze";
+import { analyzeWithCache } from "@/lib/cache";
+import { QuotaError } from "@/lib/gemini";
 import { extractPagesFromPdf } from "@/lib/pdf-server";
 import type { StreamEvent } from "@/lib/types";
 
@@ -23,7 +25,9 @@ async function readInput(req: Request): Promise<{ pages: string[]; fileName: str
     const file = form.get("file");
     if (!(file instanceof File)) throw new BadRequest('Attach the PDF as a form field named "file".');
     if (file.size > MAX_UPLOAD_BYTES) {
-      throw new BadRequest("File is over the 4 MB upload limit. Use the web app, which reads the PDF in your browser.");
+      throw new BadRequest(
+        "File is over the 4 MB upload limit. Use the web app, which reads the PDF in your browser.",
+      );
     }
     try {
       const pages = await extractPagesFromPdf(new Uint8Array(await file.arrayBuffer()));
@@ -62,10 +66,10 @@ export async function POST(req: Request) {
 
   if (!wantsStream) {
     try {
-      const report = await analyzeRfp(input);
+      const report = await analyzeWithCache(input);
       return Response.json(report);
     } catch (err) {
-      return Response.json({ error: errorMessage(err) }, { status: 500 });
+      return Response.json({ error: errorMessage(err) }, { status: err instanceof QuotaError ? 429 : 500 });
     }
   }
 
@@ -74,7 +78,7 @@ export async function POST(req: Request) {
     async start(controller) {
       const send = (event: StreamEvent) => controller.enqueue(encoder.encode(`${JSON.stringify(event)}\n`));
       try {
-        const report = await analyzeRfp({
+        const report = await analyzeWithCache({
           ...input,
           onProgress: (stage, message) => send({ type: "stage", stage, message }),
         });
