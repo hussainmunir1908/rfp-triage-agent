@@ -10,10 +10,14 @@ Not a fit: construction, facilities, physical goods, staffing-only contracts, wo
 programs that require facility security clearances or set-aside status idiaz.io does not hold.
 Set-asides are unknown unless stated in the document; do not assume idiaz.io qualifies for any.
 
+The profile states only this: US-registered, AI-native, a small senior team, and the four kinds of work above.
+
 The profile does NOT say any of the following, so treat each as UNKNOWN until the company confirms it:
-years in business, past or reference projects (public-sector or otherwise), annual revenue, exact headcount,
-certifications or audit reports (SOC 2, ISO 27001, FedRAMP), insurance coverage and limits, registration in any
-particular US state, named staff for specific roles, and willingness to travel or attend in person.`;
+years in business, past or reference projects (public-sector or otherwise), annual revenue, exact headcount (so
+no numeric size standard, such as fewer than 100 employees or under a revenue limit, can be called met), where
+its hosting runs, whether it uses subcontractors, whether staff work remotely or onsite, certifications or audit
+reports (SOC 2, ISO 27001, FedRAMP), insurance coverage and limits, registration in any particular US state,
+named staff for specific roles, and willingness to travel or attend in person.`;
 
 export const EXTRACTION_SYSTEM = `You are a careful government-contracting analyst reading one RFP.
 You extract facts. You do not guess.
@@ -90,7 +94,10 @@ Two jobs, in this order.
 - qualification_checks: for EVERY mandatory requirement about eligibility or qualification (set-aside, years in
   business, past performance and references, certifications, registration, insurance, key personnel, onsite
   attendance, location, clearances) say whether the profile meets it: met, unknown, at_risk or blocked.
-  Never mark something met unless the profile states it. If the profile is silent, the answer is unknown.
+  Mark met only when a sentence of the company profile states it, and say which fact in the note. Do not add
+  facts to the profile (no assumed hosting, subcontracting, remote work, revenue or headcount). If the profile is
+  silent, the answer is unknown. Only eligibility and qualification items belong here, not terms the bidder
+  merely has to accept, such as a proposal validity period.
   Use blocked only when the profile clearly cannot meet it, and also list it under deal_breakers.
 - factors: every factor that moves the fit score, each with an impact from -3 to +3 and a one-line reason.
   Factors measure what the DOCUMENT says: how well the work matches the profile, the size of the contract against
@@ -98,7 +105,8 @@ Two jobs, in this order.
   indemnity, penalties and service credits, strict acceptance criteria, integration with systems the City owns,
   onsite needs, timeline. Look for these risks in the requirements and give each real one its own factor.
   A budget is only a positive if the document gives a reason to think the scope fits it; otherwise say it is
-  unproven. Do not give positive impacts for things the profile does not state.
+  unproven. Do not give positive impacts for things the profile does not state, and none for eligibility that is not
+  confirmed met (a set-aside the profile cannot confirm earns no positive factor).
 - Do NOT subtract points because the profile is silent on something (company age, references, certifications,
   insurance, registration). Those are handled by qualification_checks, and the system lowers the maximum score
   for each open item by itself. Subtracting here as well would count the same gap twice. Use a negative factor
