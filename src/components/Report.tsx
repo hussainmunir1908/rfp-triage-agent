@@ -10,6 +10,8 @@ import type {
   ReportDeadline,
   TriageReport,
 } from "@/lib/types";
+import { CAT, FOX, STAR, ZZZ } from "./pixel/art";
+import { Sprite } from "./pixel/Sprite";
 import { Badge, Card, EvidenceLink, Section } from "./ui";
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -62,9 +64,60 @@ function StatusBadge({ status, days }: { status: DeadlineStatus; days: number | 
   return <Badge tone={soon ? "amber" : "green"}>In {plural(days ?? 0, "day")}</Badge>;
 }
 
+/** Ten blocks, one per point of the fit score. */
+function Meter({ value, tone }: { value: number; tone: string }) {
+  return (
+    <div className="flex gap-[3px]" role="img" aria-label={`${value} out of 10`}>
+      {Array.from({ length: 10 }, (_, i) => (
+        <span
+          key={i}
+          className="h-[14px] w-[clamp(10px,1.6vw,18px)]"
+          style={{ background: i < value ? tone : "var(--night-line)" }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/** Sticky strip of links to the report sections. It sits outside the content frame so it spans the screen. */
+export function ReportNav({ report }: { report: TriageReport }) {
+  const nav: [string, string][] = [
+    ["decision", "Decision"],
+    ["summary", "Summary"],
+    ["dates", "Key dates"],
+    ["requirements", "Requirements"],
+    ...(report.qualification_checks.length > 0
+      ? ([["qualify", "Can we qualify?"]] as [string, string][])
+      : []),
+    ["score", "Fit score"],
+    ["call", "The call"],
+    ...(report.ambiguities.length > 0 ? ([["ambiguous", "Ambiguous"]] as [string, string][]) : []),
+    ["json", "JSON"],
+  ];
+
+  return (
+    <nav aria-label="Report sections" className="sticky top-14 z-20 border-b border-line bg-paper">
+      <ul className="frame flex gap-1 overflow-x-auto py-2">
+        {nav.map(([id, label]) => (
+          <li key={id} className="shrink-0">
+            <a
+              href={`#${id}`}
+              className="label block whitespace-nowrap rounded-[4px] px-2.5 py-1.5 text-ink-2 hover:bg-paper-2 hover:text-ink"
+            >
+              {label}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
 export function Report({ report }: { report: TriageReport }) {
   // Recompute against the viewer's clock so a saved report never looks fresher than it is.
   const now = useMemo(() => new Date(), []);
+  const [onlyMandatory, setOnlyMandatory] = useState(false);
+
   const deadlines: (ReportDeadline & { live: ReturnType<typeof deadlineStatus> })[] = useMemo(
     () =>
       report.deadlines
@@ -86,232 +139,335 @@ export function Report({ report }: { report: TriageReport }) {
   const anyExpired = deadlines.some((d) => d.live.status === "expired");
   const lastProposal = proposal.at(-1);
 
+  const mandatoryCount = report.requirements.filter((r) => r.mandatory).length;
   const grouped = useMemo(() => {
     const map = new Map<string, TriageReport["requirements"]>();
     for (const r of report.requirements) {
+      if (onlyMandatory && !r.mandatory) continue;
       map.set(r.category, [...(map.get(r.category) ?? []), r]);
     }
     return [...map.entries()];
-  }, [report.requirements]);
+  }, [report.requirements, onlyMandatory]);
 
   const v = report.verification;
   const c = report.coverage;
   const bid = report.decision === "BID";
+  const accent = bid ? "#3fb585" : "#ff6a5a";
 
   return (
-    <div className="space-y-8">
-      {/* Decision ------------------------------------------------------ */}
-      <Card className="flex flex-col gap-5 sm:flex-row sm:items-center">
-        <div
-          className={`flex h-28 w-28 shrink-0 flex-col items-center justify-center rounded-2xl ${
-            bid ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"
-          }`}
-        >
-          <span className="text-4xl font-bold leading-none">{report.fit_score}</span>
-          <span className="mt-1 text-xs font-medium uppercase tracking-wide">fit / 10</span>
-        </div>
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={`rounded-md px-2.5 py-1 text-sm font-bold tracking-wide text-white ${
-                bid ? "bg-emerald-600" : "bg-red-600"
-              }`}
-            >
-              {bid ? "BID" : "NO BID"}
-            </span>
-            {report.fast_no_bid ? <Badge tone="red">Fast no-bid: not our kind of work</Badge> : null}
-            {proposalExpired ? <Badge tone="red">Proposal deadline passed</Badge> : null}
-            {report.cached ? <Badge tone="blue">Saved result, no new AI call</Badge> : null}
-          </div>
-          <p className="mt-2 text-sm leading-relaxed text-slate-700">{report.recommendation_summary}</p>
-          <p className="mt-2 text-xs text-slate-500">
-            {report.file_name} &middot; {plural(report.page_count, "page")} &middot; read by {report.model}
-          </p>
-        </div>
-      </Card>
+    <div className="space-y-5 sm:space-y-6">
+      {/* Decision ------------------------------------------------------- */}
+      <div id="decision" className="grid scroll-mt-28 gap-4 xl:grid-cols-12">
+        <div className="relative overflow-hidden rounded-[6px] bg-night p-5 text-paper sm:p-7 xl:col-span-8">
+          <div className="relative z-10 grid gap-6 md:grid-cols-[auto_1fr] md:gap-8">
+            <div className="flex flex-col justify-between gap-5">
+              <div>
+                <p className="label text-paper/55">fit score</p>
+                <p
+                  className="mt-2 leading-none tracking-tight"
+                  style={{
+                    fontFamily: "var(--font-silk)",
+                    fontWeight: 700,
+                    fontSize: "clamp(3.6rem,8vw,6.5rem)",
+                    color: accent,
+                  }}
+                >
+                  {report.fit_score}
+                  <span
+                    className="ml-1 text-[0.32em] font-bold text-paper/40"
+                    style={{ fontFamily: "var(--font-space)" }}
+                  >
+                    /10
+                  </span>
+                </p>
+              </div>
+              <Meter value={report.fit_score} tone={accent} />
+            </div>
 
-      {/* Expiry banner (bonus feature) -------------------------------- */}
+            <div className="min-w-0 sm:pr-[calc(var(--s)*17)]">
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                <span
+                  className="stamp label inline-block border-2 px-3 py-1.5 text-[clamp(1rem,2vw,1.5rem)] font-bold tracking-[0.18em]"
+                  style={{ color: accent, borderColor: accent }}
+                >
+                  {bid ? "BID" : "NO BID"}
+                </span>
+                {report.fast_no_bid ? (
+                  <Badge dark tone="red">
+                    Fast no-bid: not our kind of work
+                  </Badge>
+                ) : null}
+                {proposalExpired ? (
+                  <Badge dark tone="red">
+                    Proposal deadline passed
+                  </Badge>
+                ) : null}
+                {report.cached ? (
+                  <Badge dark tone="blue">
+                    Saved result, no new AI call
+                  </Badge>
+                ) : null}
+              </div>
+              <p className="mt-4 text-[clamp(1rem,1.5vw,1.2rem)] leading-[1.6] text-paper/90">
+                {report.recommendation_summary}
+              </p>
+              <p className="mt-4 font-mono text-xs leading-relaxed text-paper/50">
+                {report.file_name} &middot; {plural(report.page_count, "page")} &middot; read by{" "}
+                {report.model}
+              </p>
+            </div>
+          </div>
+
+          <div
+            className="pointer-events-none absolute bottom-0 right-5 hidden items-end gap-2 sm:flex"
+            aria-hidden
+          >
+            {bid ? (
+              <>
+                <div className="hop mb-1">
+                  <Sprite art={STAR} px="3px" />
+                </div>
+                <div className="hop">
+                  <Sprite art={FOX} />
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="blink mb-8">
+                  <Sprite art={ZZZ} px="3px" className="opacity-60" />
+                </div>
+                <div className="bob">
+                  <Sprite art={CAT} />
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* Evidence checks (bonus feature) -------------------------------- */}
+        <Card className="flex flex-col gap-4 xl:col-span-4">
+          <div>
+            <p className="label text-ink-3">evidence // quotes</p>
+            <p className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              <span className="text-[clamp(1.8rem,3vw,2.5rem)] font-bold leading-none tracking-tight">
+                {v.verified}
+                <span className="text-ink-3">/{v.total}</span>
+              </span>
+              <span className="text-sm font-medium">cited quotes found in the document</span>
+            </p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <Badge tone="green">{v.exact} exact</Badge>
+              {v.close > 0 ? <Badge tone="blue">{v.close} close</Badge> : null}
+              {v.unverified > 0 ? <Badge tone="amber">{v.unverified} unverified</Badge> : null}
+              {v.dates_corrected > 0 ? <Badge tone="amber">{v.dates_corrected} dates corrected</Badge> : null}
+            </div>
+            <p className="mt-2 font-mono text-xs leading-relaxed text-ink-3">
+              Code confirms each quote exists in the PDF. It cannot prove the reading is right, so open the
+              page.
+            </p>
+          </div>
+
+          <div className="border-t border-line pt-4">
+            <p className="label text-ink-3">evidence // recall</p>
+            <p className="mt-1.5 flex flex-wrap items-baseline gap-x-2 gap-y-1">
+              <span className="text-[clamp(1.8rem,3vw,2.5rem)] font-bold leading-none tracking-tight">
+                {c.statements - c.unreviewed}
+                <span className="text-ink-3">/{c.statements}</span>
+              </span>
+              <span className="text-sm font-medium">obligation-like sentences accounted for</span>
+            </p>
+            <p className="mt-2 font-mono text-xs leading-relaxed text-ink-3">
+              Sentences with must, shall, may not, terminate and similar cues. An obligation worded without
+              those cues is not covered by this check.
+            </p>
+            {c.unreviewed > 0 ? (
+              <p className="mt-2 border-l-2 border-amber pl-3 font-mono text-xs leading-relaxed text-amber">
+                {c.unreviewed} could not be reviewed, so the requirements list may be incomplete.
+              </p>
+            ) : null}
+            {/lite/i.test(report.model) ? (
+              <p className="mt-2 border-l-2 border-amber pl-3 font-mono text-xs leading-relaxed text-amber">
+                The main model was busy, so part of this report was written by a lighter fallback model (
+                {report.model}). It tends to list fewer requirements; run it again later for a fuller read.
+              </p>
+            ) : null}
+            <details className="mt-2">
+              <summary className="label cursor-pointer text-ink-2">How the recall check worked here</summary>
+              <p className="mt-2 font-mono text-xs leading-relaxed text-ink-3">
+                {c.matched} were already in the first pass
+                {c.added > 0 ? `, ${c.added} more were added by a second look` : ""}
+                {c.set_aside > 0 ? `, ${c.set_aside} were set aside as definitions or boilerplate` : ""}.
+                Numbered requirement ids and deadlines in days count as cues too.
+              </p>
+            </details>
+          </div>
+        </Card>
+      </div>
+
+      {/* Expiry banner (bonus feature) ---------------------------------- */}
       {proposalExpired && lastProposal ? (
-        <div role="alert" className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-800">
-          <p className="font-semibold">This RFP has already closed.</p>
-          <p className="mt-1">
-            The proposal deadline was {formatDate(lastProposal.date)} (
-            {plural(Math.abs(lastProposal.live.days ?? 0), "day")} ago). The fit assessment below is still
-            valid for judging similar work, but there is nothing left to bid on unless the agency reissues or
-            extends it.
-          </p>
+        <div
+          role="alert"
+          className="flex items-start gap-3 rounded-[6px] border border-red/30 bg-red-wash p-4 text-sm text-red"
+        >
+          <span className="label mt-0.5 shrink-0">Closed</span>
+          <div>
+            <p className="font-semibold">This RFP has already closed.</p>
+            <p className="mt-1 leading-relaxed">
+              The proposal deadline was {formatDate(lastProposal.date)} (
+              {plural(Math.abs(lastProposal.live.days ?? 0), "day")} ago). The fit assessment below is still
+              valid for judging similar work, but there is nothing left to bid on unless the agency reissues
+              or extends it.
+            </p>
+          </div>
         </div>
       ) : anyExpired ? (
         <div
           role="status"
-          className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
+          className="flex items-start gap-3 rounded-[6px] border border-amber/30 bg-amber-wash p-4 text-sm text-amber"
         >
-          Some dates in this document have already passed. They are marked in the key dates table.
+          <span className="label mt-0.5 shrink-0">Heads up</span>
+          <span>Some dates in this document have already passed. They are marked in the key dates list.</span>
         </div>
       ) : null}
 
-      {/* Verification (bonus feature) --------------------------------- */}
-      <Card className="flex flex-wrap items-center gap-x-6 gap-y-2">
-        <div>
-          <p className="text-sm font-semibold text-slate-900">
-            {v.verified} of {v.total} cited quotes found in the document
-          </p>
-          <p className="text-xs text-slate-500">
-            Every fact below links to the page it came from. Code checks that each quote exists in the PDF
-            text; it cannot prove the model read it correctly, so open the page to confirm anything important.
-          </p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          <Badge tone="green">{v.exact} exact</Badge>
-          {v.close > 0 ? <Badge tone="blue">{v.close} close</Badge> : null}
-          {v.unverified > 0 ? <Badge tone="amber">{v.unverified} unverified</Badge> : null}
-          {v.dates_corrected > 0 ? <Badge tone="amber">{v.dates_corrected} dates corrected</Badge> : null}
-        </div>
-        <div className="basis-full border-t border-slate-100 pt-2">
-          <p className="text-sm font-semibold text-slate-900">
-            Recall check: {c.statements - c.unreviewed} of {c.statements} sentences that sound like
-            obligations were accounted for
-          </p>
-          <p className="text-xs text-slate-500">
-            Code looks for sentences with words like must, shall, required, may not, grounds for, terminate or
-            a deadline in days, plus numbered requirement ids. {c.matched} were already in the first pass
-            {c.added > 0 ? `, ${c.added} more were added by a second look` : ""}
-            {c.set_aside > 0 ? `, ${c.set_aside} were set aside as definitions or boilerplate` : ""}.
-            {c.unreviewed > 0
-              ? ` ${c.unreviewed} could not be reviewed, so the requirements list may be incomplete.`
-              : ""}{" "}
-            An obligation worded without those cues is not covered by this check.
-          </p>
-          {/lite/i.test(report.model) ? (
-            <p className="mt-1 text-xs font-medium text-amber-700">
-              The main model was busy, so part of this report was written by a lighter fallback model (
-              {report.model}). It tends to list fewer requirements; run it again later for a fuller read.
-            </p>
-          ) : null}
-        </div>
-      </Card>
-
-      {/* 01 Summary ---------------------------------------------------- */}
-      <Section title="Summary">
-        <Card>
-          <p className="text-sm leading-relaxed text-slate-800">{report.summary}</p>
-        </Card>
-        <Card className="mt-3">
-          <dl className="grid gap-x-6 gap-y-3 sm:grid-cols-2">
-            {report.facts.map((f) => (
-              <div key={f.label}>
-                <dt className="flex items-center gap-2 text-xs font-medium uppercase tracking-wide text-slate-500">
-                  {f.label}
-                  {f.evidence ? <EvidenceLink evidence={f.evidence} label={f.label} /> : null}
-                </dt>
-                <dd
-                  className={`mt-0.5 text-sm ${f.value === "Not stated" ? "text-slate-400" : "text-slate-900"}`}
-                >
-                  {f.value}
-                </dd>
-                <Caution evidence={f.evidence} />
-              </div>
-            ))}
-          </dl>
-        </Card>
-      </Section>
-
-      {/* 02 Key dates -------------------------------------------------- */}
-      <Section title="Key dates" hint={`Checked against today, ${formatDate(toIsoLocal(now))}`}>
-        {deadlines.length === 0 ? (
+      {/* Summary and dates ---------------------------------------------- */}
+      <div className="grid gap-4 xl:grid-cols-12 xl:gap-5">
+        <Section id="summary" title="Summary" hint="what the agency wants" className="xl:col-span-5">
           <Card>
-            <p className="text-sm text-slate-500">Not stated. No dates were found in the document.</p>
-          </Card>
-        ) : (
-          <Card className="overflow-x-auto p-0">
-            <table className="w-full min-w-[560px] text-left text-sm">
-              <thead className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-4 py-2 font-medium">What</th>
-                  <th className="px-4 py-2 font-medium">Date</th>
-                  <th className="px-4 py-2 font-medium">Status</th>
-                  <th className="px-4 py-2 font-medium">Source</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {deadlines.map((d) => (
-                  <tr
-                    key={d.id}
-                    className={
-                      d.live.status === "expired"
-                        ? "bg-red-50/40"
-                        : d.live.status === "superseded"
-                          ? "text-slate-400"
-                          : ""
-                    }
+            <p className="text-[15px] leading-[1.7] sm:text-base">{report.summary}</p>
+            <dl className="mt-5 grid gap-x-6 gap-y-4 border-t border-line pt-5 sm:grid-cols-2">
+              {report.facts.map((f) => (
+                <div key={f.label} className="min-w-0">
+                  <dt className="flex flex-wrap items-center gap-2">
+                    <span className="label text-ink-3">{f.label}</span>
+                    {f.evidence ? <EvidenceLink evidence={f.evidence} label={f.label} /> : null}
+                  </dt>
+                  <dd
+                    className={`mt-1 break-words text-sm leading-relaxed ${f.value === "Not stated" ? "text-ink-3" : ""}`}
                   >
-                    <td
-                      className={`px-4 py-3 align-top font-medium ${
-                        d.live.status === "superseded" ? "text-slate-500" : "text-slate-900"
+                    {f.value}
+                  </dd>
+                  <Caution evidence={f.evidence} />
+                </div>
+              ))}
+            </dl>
+          </Card>
+        </Section>
+
+        <Section
+          id="dates"
+          title="Key dates"
+          hint={`checked against today, ${formatDate(toIsoLocal(now))}`}
+          className="xl:col-span-7"
+        >
+          {deadlines.length === 0 ? (
+            <Card>
+              <p className="text-sm text-ink-3">Not stated. No dates were found in the document.</p>
+            </Card>
+          ) : (
+            <div className="overflow-hidden rounded-[6px] border border-line bg-card">
+              <div className="label hidden grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_auto] gap-4 border-b border-line bg-paper-2 px-5 py-2 text-ink-3 sm:grid">
+                <span>What</span>
+                <span>Date</span>
+                <span>Status</span>
+                <span>Source</span>
+              </div>
+              <ul>
+                {deadlines.map((d) => {
+                  const gone = d.live.status === "superseded";
+                  return (
+                    <li
+                      key={d.id}
+                      className={`grid gap-x-4 gap-y-1.5 border-b border-line px-4 py-3 last:border-b-0 sm:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)_minmax(0,1fr)_auto] sm:px-5 ${
+                        d.live.status === "expired" ? "bg-red-wash/50" : ""
                       }`}
                     >
-                      {d.what}
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      {d.date !== "Not stated" ? (
-                        <>
-                          <span
-                            className={
-                              d.live.status === "superseded"
-                                ? "text-slate-500 line-through"
-                                : "text-slate-900"
-                            }
-                          >
-                            {formatDate(d.date)}
-                          </span>
-                          {d.time_text ? (
-                            <span className="block text-xs text-slate-500">{d.time_text}</span>
-                          ) : null}
-                        </>
-                      ) : (
-                        <span className="text-slate-600">{d.date_text || "Not stated"}</span>
-                      )}
-                      {d.note ? <span className="mt-1 block text-xs text-amber-700">{d.note}</span> : null}
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <StatusBadge status={d.live.status} days={d.live.days} />
-                    </td>
-                    <td className="px-4 py-3 align-top">
-                      <EvidenceLink evidence={d.evidence} label={d.what} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </Card>
-        )}
-      </Section>
+                      <p className={`text-sm font-medium ${gone ? "text-ink-3" : ""}`}>{d.what}</p>
+                      <div className="text-sm">
+                        {d.date !== "Not stated" ? (
+                          <>
+                            <span className={`font-mono ${gone ? "text-ink-3 line-through" : ""}`}>
+                              {formatDate(d.date)}
+                            </span>
+                            {d.time_text ? (
+                              <span className="block font-mono text-xs text-ink-3">{d.time_text}</span>
+                            ) : null}
+                          </>
+                        ) : (
+                          <span className="text-ink-2">{d.date_text || "Not stated"}</span>
+                        )}
+                        {d.note ? <span className="mt-1 block text-xs text-amber">{d.note}</span> : null}
+                      </div>
+                      <div>
+                        <StatusBadge status={d.live.status} days={d.live.days} />
+                      </div>
+                      <div>
+                        <EvidenceLink evidence={d.evidence} label={d.what} />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
+        </Section>
+      </div>
 
-      {/* 03 Requirements ---------------------------------------------- */}
-      <Section title="Requirements" hint={`${report.requirements.length} found`}>
+      {/* Requirements --------------------------------------------------- */}
+      <Section
+        id="requirements"
+        title="Requirements"
+        hint={`${report.requirements.length} found, ${mandatoryCount} mandatory`}
+        aside={
+          <div
+            className="flex rounded-[6px] border border-line bg-card p-0.5"
+            role="group"
+            aria-label="Filter requirements"
+          >
+            {[
+              [false, `All ${report.requirements.length}`],
+              [true, `Mandatory ${mandatoryCount}`],
+            ].map(([value, label]) => (
+              <button
+                key={String(value)}
+                type="button"
+                aria-pressed={onlyMandatory === value}
+                onClick={() => setOnlyMandatory(value as boolean)}
+                className={`label rounded-[4px] px-3 py-1.5 transition-colors ${
+                  onlyMandatory === value ? "bg-ink text-paper" : "text-ink-2 hover:bg-paper-2"
+                }`}
+              >
+                {label as string}
+              </button>
+            ))}
+          </div>
+        }
+      >
         {grouped.length === 0 ? (
           <Card>
-            <p className="text-sm text-slate-500">Not stated. No requirements were found.</p>
+            <p className="text-sm text-ink-3">Not stated. No requirements were found.</p>
           </Card>
         ) : (
-          <div className="space-y-3">
+          <div className="columns-1 gap-4 md:columns-2 2xl:columns-3 min-[2200px]:columns-4">
             {grouped.map(([category, items]) => (
-              <Card key={category}>
-                <h3 className="mb-2 text-sm font-semibold text-slate-900">
-                  {CATEGORY_LABELS[category] ?? category}
-                </h3>
-                <ul className="divide-y divide-slate-100">
+              <Card key={category} className="mb-4 break-inside-avoid p-0 sm:p-0">
+                <div className="flex items-center justify-between gap-3 border-b border-line bg-paper-2 px-4 py-2 sm:px-5">
+                  <h3 className="label font-bold text-ink">{CATEGORY_LABELS[category] ?? category}</h3>
+                  <span className="font-mono text-xs text-ink-3">{items.length}</span>
+                </div>
+                <ul>
                   {items.map((r) => (
-                    <li key={r.id} className="flex flex-wrap items-start justify-between gap-2 py-2 text-sm">
-                      <span className="min-w-0 flex-1 text-slate-800">
-                        {r.text}{" "}
+                    <li key={r.id} className="border-b border-line px-4 py-3 text-sm last:border-b-0 sm:px-5">
+                      <p className="leading-relaxed">{r.text}</p>
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
                         <Badge tone={r.mandatory ? "red" : "slate"}>
                           {r.mandatory ? "Mandatory" : "Optional"}
-                        </Badge>{" "}
+                        </Badge>
                         {r.source === "sweep" ? <Badge tone="blue">Added by second look</Badge> : null}
-                        <Caution evidence={r.evidence} />
-                      </span>
-                      <EvidenceLink evidence={r.evidence} label={r.text} />
+                        <EvidenceLink evidence={r.evidence} label={r.text} />
+                      </div>
+                      <Caution evidence={r.evidence} />
                     </li>
                   ))}
                 </ul>
@@ -321,140 +477,169 @@ export function Report({ report }: { report: TriageReport }) {
         )}
       </Section>
 
-      {/* Can we qualify? ----------------------------------------------- */}
-      {report.qualification_checks.length > 0 ? (
-        <Section
-          title="Can we qualify?"
-          hint="Mandatory eligibility items checked against the idiaz.io profile"
-        >
-          <Card>
-            <ul className="divide-y divide-slate-100">
-              {report.qualification_checks.map((q) => {
-                const label = CHECK_LABELS[q.status];
-                return (
-                  <li
-                    key={q.requirement_id}
-                    className="flex flex-wrap items-start justify-between gap-2 py-2.5 text-sm"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-slate-800">
-                        <Badge tone={label.tone}>{label.text}</Badge> {q.requirement}
-                      </p>
-                      <p className="mt-0.5 text-slate-500">{q.note}</p>
-                    </div>
-                    <EvidenceLink evidence={q.evidence} label={q.requirement} />
-                  </li>
-                );
-              })}
-            </ul>
-            <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
-              The profile does not state years in business, past projects, certifications or insurance, so
-              those show as Confirm. An unconfirmed item caps the score at 8, or at 7 when three or more are
-              open.
-            </p>
-          </Card>
-        </Section>
-      ) : null}
+      {/* Qualify and score ---------------------------------------------- */}
+      <div className="grid gap-4 xl:grid-cols-2 xl:gap-5">
+        {report.qualification_checks.length > 0 ? (
+          <Section id="qualify" title="Can we qualify?" hint="mandatory eligibility vs. the idiaz.io profile">
+            <Card className="p-0 sm:p-0">
+              <ul>
+                {report.qualification_checks.map((q) => {
+                  const label = CHECK_LABELS[q.status];
+                  return (
+                    <li
+                      key={q.requirement_id}
+                      className="grid gap-x-4 gap-y-1 border-b border-line px-4 py-3 text-sm sm:grid-cols-[auto_1fr_auto] sm:px-5"
+                    >
+                      <div>
+                        <Badge tone={label.tone}>{label.text}</Badge>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="leading-relaxed">{q.requirement}</p>
+                        <p className="mt-0.5 leading-relaxed text-ink-3">{q.note}</p>
+                      </div>
+                      <div>
+                        <EvidenceLink evidence={q.evidence} label={q.requirement} />
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="px-4 py-3 font-mono text-xs leading-relaxed text-ink-3 sm:px-5">
+                The profile does not state years in business, past projects, certifications or insurance, so
+                those show as Confirm. An unconfirmed item caps the score at 8, or at 7 when three or more are
+                open.
+              </p>
+            </Card>
+          </Section>
+        ) : null}
 
-      {/* 04 Fit score -------------------------------------------------- */}
-      <Section title="Fit score" hint="Starts at 5, each factor adds or subtracts">
-        <Card>
-          <ul className="divide-y divide-slate-100">
-            {report.factors.map((f, i) => (
-              <li key={i} className="flex items-start gap-3 py-2.5 text-sm">
-                <span
-                  className={`mt-0.5 w-9 shrink-0 rounded-md px-1.5 py-0.5 text-center text-xs font-bold ${
-                    f.impact > 0
-                      ? "bg-emerald-50 text-emerald-700"
-                      : f.impact < 0
-                        ? "bg-red-50 text-red-700"
-                        : "bg-slate-100 text-slate-600"
-                  }`}
+        <Section id="score" title="Fit score" hint="starts at 5, each factor adds or subtracts">
+          <Card className="p-0 sm:p-0">
+            <ul>
+              {report.factors.map((f, i) => (
+                <li
+                  key={i}
+                  className="grid grid-cols-[auto_1fr] gap-x-4 border-b border-line px-4 py-3 text-sm sm:px-5"
                 >
-                  {f.impact > 0 ? `+${f.impact}` : f.impact}
-                </span>
-                <div className="min-w-0">
-                  <p className="font-medium text-slate-900">{f.name}</p>
-                  <p className="text-slate-600">{f.reason}</p>
-                  <Refs refs={f.refs} report={report} />
-                </div>
-              </li>
-            ))}
-          </ul>
-          <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
-            Final score {report.fit_score}/10. A score of 6 or more with no deal-breaker recommends a bid.
-          </p>
-        </Card>
-      </Section>
-
-      {/* 05 Bid / no-bid ---------------------------------------------- */}
-      <Section title={bid ? "Why we should bid" : "Why we should not bid"} hint="Three strongest reasons">
-        <Card>
-          <ol className="space-y-3">
-            {report.reasons.map((r, i) => (
-              <li key={i} className="flex gap-3 text-sm">
-                <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-slate-900 text-xs font-bold text-white">
-                  {i + 1}
-                </span>
-                <div className="min-w-0">
-                  <p className="text-slate-800">{r.text}</p>
-                  <Refs refs={r.refs} report={report} />
-                </div>
-              </li>
-            ))}
-          </ol>
-        </Card>
-
-        {report.deal_breakers.length > 0 ? (
-          <Card className="mt-3 border-red-200 bg-red-50/50">
-            <h3 className="mb-2 text-sm font-semibold text-red-800">Deal-breakers</h3>
-            <ul className="space-y-2 text-sm text-red-900">
-              {report.deal_breakers.map((d, i) => (
-                <li key={i}>
-                  {d.text}
-                  <Refs refs={d.refs} report={report} />
+                  <span
+                    className={`grid h-9 w-11 place-items-center border text-[13px] font-bold ${
+                      f.impact > 0
+                        ? "border-green/30 bg-green-wash text-green"
+                        : f.impact < 0
+                          ? "border-red/30 bg-red-wash text-red"
+                          : "border-line-2 bg-paper-2 text-ink-2"
+                    }`}
+                    style={{ fontFamily: "var(--font-silk)" }}
+                  >
+                    {f.impact > 0 ? `+${f.impact}` : f.impact}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="font-semibold">{f.name}</p>
+                    <p className="leading-relaxed text-ink-2">{f.reason}</p>
+                    <Refs refs={f.refs} report={report} />
+                  </div>
                 </li>
               ))}
             </ul>
+            <p className="px-4 py-3 font-mono text-xs leading-relaxed text-ink-3 sm:px-5">
+              Final score {report.fit_score}/10. A score of 6 or more with no deal-breaker recommends a bid.
+            </p>
           </Card>
-        ) : null}
+        </Section>
+      </div>
 
-        <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <Card>
-            <h3 className="mb-2 text-sm font-semibold text-slate-900">What would change the call</h3>
-            {report.would_change_mind.length === 0 ? (
-              <p className="text-sm text-slate-500">Nothing identified.</p>
-            ) : (
-              <ul className="list-disc space-y-1.5 pl-5 text-sm text-slate-700">
-                {report.would_change_mind.map((t, i) => (
-                  <li key={i}>{t}</li>
+      {/* The call ------------------------------------------------------- */}
+      <Section
+        id="call"
+        title={bid ? "Why we should bid" : "Why we should not bid"}
+        hint="three strongest reasons"
+      >
+        <div className="grid gap-4 xl:grid-cols-12 xl:gap-5">
+          <div className="min-w-0 space-y-4 xl:col-span-6">
+            <Card>
+              <ol className="space-y-4">
+                {report.reasons.map((r, i) => (
+                  <li key={i} className="flex gap-4 text-sm">
+                    <span
+                      className="grid h-8 w-8 shrink-0 place-items-center bg-ink text-[13px] text-paper"
+                      style={{ fontFamily: "var(--font-silk)" }}
+                    >
+                      {i + 1}
+                    </span>
+                    <div className="min-w-0 pt-0.5">
+                      <p className="leading-relaxed">{r.text}</p>
+                      <Refs refs={r.refs} report={report} />
+                    </div>
+                  </li>
                 ))}
-              </ul>
-            )}
-          </Card>
-          <Card>
-            <h3 className="mb-2 text-sm font-semibold text-slate-900">Questions to ask the agency</h3>
-            {report.open_questions.length === 0 ? (
-              <p className="text-sm text-slate-500">None.</p>
-            ) : (
-              <ul className="list-disc space-y-1.5 pl-5 text-sm text-slate-700">
-                {report.open_questions.map((t, i) => (
-                  <li key={i}>{t}</li>
-                ))}
-              </ul>
-            )}
-          </Card>
+              </ol>
+            </Card>
+
+            {report.deal_breakers.length > 0 ? (
+              <div className="rounded-[6px] border border-red/30 bg-red-wash p-4 sm:p-5">
+                <h3 className="label font-bold text-red">Deal-breakers</h3>
+                <ul className="mt-3 space-y-2.5 text-sm leading-relaxed text-red">
+                  {report.deal_breakers.map((d, i) => (
+                    <li key={i} className="border-l-2 border-red/50 pl-3">
+                      {d.text}
+                      <Refs refs={d.refs} report={report} />
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+          </div>
+
+          <div className="grid min-w-0 gap-4 xl:col-span-6 xl:grid-rows-2">
+            <Card>
+              <h3 className="label font-bold">What would change the call</h3>
+              {report.would_change_mind.length === 0 ? (
+                <p className="mt-3 text-sm text-ink-3">Nothing identified.</p>
+              ) : (
+                <ul className="mt-3 space-y-2 text-sm leading-relaxed text-ink-2">
+                  {report.would_change_mind.map((t, i) => (
+                    <li key={i} className="flex gap-2.5">
+                      <span className="mt-[7px] h-[6px] w-[6px] shrink-0 bg-orange" />
+                      <span>{t}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+            <Card>
+              <h3 className="label font-bold">Questions to ask the agency</h3>
+              {report.open_questions.length === 0 ? (
+                <p className="mt-3 text-sm text-ink-3">None.</p>
+              ) : (
+                <ul className="mt-3 space-y-2 text-sm leading-relaxed text-ink-2">
+                  {report.open_questions.map((t, i) => (
+                    <li key={i} className="flex gap-2.5">
+                      <span className="mt-[7px] h-[6px] w-[6px] shrink-0 bg-orange" />
+                      <span>{t}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          </div>
         </div>
       </Section>
 
-      {/* Ambiguities --------------------------------------------------- */}
+      {/* Ambiguities ---------------------------------------------------- */}
       {report.ambiguities.length > 0 ? (
-        <Section title="Flagged as ambiguous" hint="The agent did not pick a reading for these">
-          <Card>
-            <ul className="divide-y divide-slate-100">
+        <Section
+          id="ambiguous"
+          title="Flagged as ambiguous"
+          hint="the agent did not pick a reading for these"
+        >
+          <Card className="p-0 sm:p-0">
+            <ul>
               {report.ambiguities.map((a) => (
-                <li key={a.id} className="flex flex-wrap items-start justify-between gap-2 py-2 text-sm">
-                  <span className="min-w-0 flex-1 text-slate-800">
+                <li
+                  key={a.id}
+                  className="flex flex-wrap items-start justify-between gap-x-4 gap-y-2 border-b border-line px-4 py-3 text-sm last:border-b-0 sm:px-5"
+                >
+                  <span className="min-w-0 flex-1 leading-relaxed">
                     {a.issue} {a.source === "figures" ? <Badge tone="blue">Found by code</Badge> : null}
                   </span>
                   <EvidenceLink evidence={a.evidence} label="Ambiguity" />
@@ -473,7 +658,7 @@ export function Report({ report }: { report: TriageReport }) {
 /** Shown when a figure in an item is missing from the quote that is meant to back it. */
 function Caution({ evidence }: { evidence: Evidence | null }) {
   if (!evidence?.caution) return null;
-  return <span className="mt-0.5 block text-xs text-amber-700">{evidence.caution}</span>;
+  return <span className="mt-1 block font-mono text-xs text-amber">{evidence.caution}</span>;
 }
 
 function toIsoLocal(d: Date): string {
@@ -485,16 +670,16 @@ function toIsoLocal(d: Date): string {
 function Refs({ refs, report }: { refs: EvidenceRef[]; report: TriageReport }) {
   if (refs.length === 0) return null;
   return (
-    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+    <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1.5">
       {refs.map((ref) => {
         const evidence = findEvidence(report, ref.id);
         return evidence ? (
-          <span key={ref.id} className="inline-flex items-center gap-1 text-xs text-slate-500">
+          <span key={ref.id} className="inline-flex min-w-0 items-center gap-1.5 text-xs text-ink-3">
             <span className="max-w-[16rem] truncate">{ref.label}</span>
             <EvidenceLink evidence={evidence} label={ref.label} />
           </span>
         ) : (
-          <span key={ref.id} className="text-xs text-slate-500">
+          <span key={ref.id} className="text-xs text-ink-3">
             {ref.label}
           </span>
         );
@@ -538,27 +723,27 @@ function JsonExport({ report }: { report: TriageReport }) {
   };
 
   return (
-    <Section title="JSON" hint="The same report for other systems">
+    <Section id="json" title="JSON" hint="the same report for other systems">
       <Card>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={download}
-            className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-700"
+            className="rounded-[6px] bg-orange px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-[#ff7e57]"
           >
             Download JSON
           </button>
           <button
             type="button"
             onClick={copy}
-            className="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            className="rounded-[6px] border border-line-2 px-4 py-2 text-sm font-medium transition-colors hover:bg-paper-2"
           >
             {copied ? "Copied" : "Copy JSON"}
           </button>
         </div>
-        <details className="mt-3">
-          <summary className="cursor-pointer text-sm text-slate-600">Preview</summary>
-          <pre className="mt-2 max-h-96 overflow-auto rounded-lg bg-slate-900 p-3 text-xs leading-relaxed text-slate-100">
+        <details className="mt-4">
+          <summary className="label cursor-pointer text-ink-2">Preview</summary>
+          <pre className="mt-3 max-h-96 overflow-auto rounded-[6px] bg-night p-4 font-mono text-xs leading-relaxed text-paper/90">
             {json}
           </pre>
         </details>

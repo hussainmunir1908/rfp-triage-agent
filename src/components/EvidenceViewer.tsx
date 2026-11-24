@@ -83,12 +83,13 @@ export function EvidenceViewer({ pdf, pageCount, target, onClose }: Props) {
     <aside
       role="dialog"
       aria-label="Source in document"
-      className="fixed inset-y-0 right-0 z-40 flex w-full max-w-xl flex-col border-l border-slate-200 bg-white shadow-2xl"
+      className="fixed inset-y-0 right-0 z-40 flex w-full max-w-[min(46rem,100vw)] flex-col border-l border-line-2 bg-paper"
     >
-      <header className="flex items-start justify-between gap-3 border-b border-slate-200 p-4">
+      <header className="flex items-start justify-between gap-3 border-b border-line bg-card p-4">
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold text-slate-900">{target.label}</p>
-          <div className="mt-1 flex flex-wrap items-center gap-2">
+          <p className="label text-ink-3">source // page {ev.page}</p>
+          <p className="mt-1 line-clamp-2 text-sm font-semibold leading-snug">{target.label}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
             {ev.verified ? (
               <Badge tone={ev.match === "exact" ? "green" : "blue"}>
                 {ev.match === "exact" ? "Exact quote found" : "Close match found"}
@@ -104,73 +105,73 @@ export function EvidenceViewer({ pdf, pageCount, target, onClose }: Props) {
         <button
           type="button"
           onClick={onClose}
-          className="rounded-md px-2 py-1 text-sm text-slate-500 hover:bg-slate-100"
+          className="label shrink-0 rounded-[4px] border border-line-2 px-3 py-1.5 text-ink-2 transition-colors hover:bg-paper-2"
           aria-label="Close"
         >
           Close
         </button>
       </header>
 
-      <div className="border-b border-slate-200 bg-slate-50 p-4">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Quoted from the document</p>
-        <blockquote className="mt-1 border-l-2 border-amber-400 pl-3 text-sm leading-relaxed text-slate-800">
+      <div className="max-h-[32vh] overflow-auto border-b border-line bg-card p-4">
+        <p className="label text-ink-3">quoted from the document</p>
+        <blockquote className="mt-2 border-l-2 border-orange pl-3 font-mono text-[13px] leading-relaxed">
           {ev.quote || "No quote"}
         </blockquote>
         {!ev.verified ? (
-          <p className="mt-2 text-xs text-amber-800">
+          <p className="mt-2 font-mono text-xs text-amber">
             This text could not be matched to the PDF, so treat the claim as unconfirmed and check the
             document.
           </p>
         ) : null}
       </div>
 
-      <div className="flex items-center justify-between gap-2 border-b border-slate-200 px-4 py-2 text-sm">
+      <div className="flex items-center justify-between gap-2 border-b border-line bg-card px-4 py-2 text-sm">
         <button
           type="button"
           disabled={page <= 1}
           onClick={() => goTo(page - 1)}
-          className="rounded-md px-2 py-1 text-slate-700 hover:bg-slate-100 disabled:opacity-40"
+          className="label rounded-[4px] px-3 py-1.5 text-ink-2 hover:bg-paper-2 disabled:opacity-40 disabled:hover:bg-transparent"
         >
           Previous
         </button>
-        <span className="text-slate-600">
+        <span className="font-mono text-xs text-ink-2">
           Page {page} of {pageCount}
         </span>
         <button
           type="button"
           disabled={page >= pageCount}
           onClick={() => goTo(page + 1)}
-          className="rounded-md px-2 py-1 text-slate-700 hover:bg-slate-100 disabled:opacity-40"
+          className="label rounded-[4px] px-3 py-1.5 text-ink-2 hover:bg-paper-2 disabled:opacity-40 disabled:hover:bg-transparent"
         >
           Next
         </button>
       </div>
 
-      <div ref={bodyRef} className="relative flex-1 overflow-auto bg-slate-100 p-4">
+      <div ref={bodyRef} className="relative flex-1 overflow-auto bg-paper-2 p-4">
         {!pdf ? (
-          <p className="text-sm text-slate-600">
+          <p className="font-mono text-sm text-ink-2">
             The original PDF is not loaded, only the quote is available.
           </p>
         ) : (
-          <div className="relative mx-auto w-fit bg-white shadow">
+          <div className="relative mx-auto w-fit border border-line-2 bg-white">
             <canvas ref={canvasRef} className="block" />
             {boxes.map((b, i) => (
               <span
                 key={i}
-                className="pointer-events-none absolute rounded-sm bg-amber-300/50 ring-1 ring-amber-500/60"
+                className="pointer-events-none absolute bg-orange/30 outline outline-1 outline-orange"
                 style={{ left: b.left - 1, top: b.top - 1, width: b.width + 2, height: b.height + 2 }}
               />
             ))}
             {loading ? (
-              <div className="absolute inset-0 grid place-items-center bg-white/70 text-sm text-slate-600">
-                Rendering page...
+              <div className="label absolute inset-0 grid place-items-center bg-white/80 text-ink-2">
+                Rendering page<span className="blink ml-1">_</span>
               </div>
             ) : null}
           </div>
         )}
-        {error ? <p className="mt-3 text-sm text-red-700">{error}</p> : null}
+        {error ? <p className="mt-3 text-sm text-red">{error}</p> : null}
         {!loading && !found && page === ev.page ? (
-          <p className="mt-3 text-xs text-slate-600">
+          <p className="mt-3 font-mono text-xs text-ink-2">
             The page is shown, but the exact words could not be outlined on it. Use the quote above to find
             them.
           </p>

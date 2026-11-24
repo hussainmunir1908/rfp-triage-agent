@@ -8,18 +8,25 @@ export function Section({
   id,
   title,
   hint,
+  aside,
   children,
+  className = "",
 }: {
   id?: string;
   title: string;
   hint?: string;
+  aside?: ReactNode;
   children: ReactNode;
+  className?: string;
 }) {
   return (
-    <section id={id} className="scroll-mt-20">
-      <div className="mb-3 flex items-baseline justify-between gap-4">
-        <h2 className="text-lg font-semibold tracking-tight text-slate-900">{title}</h2>
-        {hint ? <p className="text-xs text-slate-500">{hint}</p> : null}
+    <section id={id} className={`min-w-0 scroll-mt-28 ${className}`}>
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
+        <div className="flex min-w-0 flex-wrap items-baseline gap-x-3 gap-y-0.5">
+          <h2 className="text-[clamp(1.15rem,1.7vw,1.5rem)] font-semibold tracking-tight">{title}</h2>
+          {hint ? <p className="font-mono text-xs text-ink-3">{`// ${hint}`}</p> : null}
+        </div>
+        {aside}
       </div>
       {children}
     </section>
@@ -27,25 +34,41 @@ export function Section({
 }
 
 export function Card({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return (
-    <div className={`rounded-xl border border-slate-200 bg-white p-4 shadow-sm ${className}`}>{children}</div>
-  );
+  return <div className={`rounded-[6px] border border-line bg-card p-4 sm:p-5 ${className}`}>{children}</div>;
 }
 
 type Tone = "slate" | "green" | "red" | "amber" | "blue";
 
 const TONES: Record<Tone, string> = {
-  slate: "bg-slate-100 text-slate-700 ring-slate-200",
-  green: "bg-emerald-50 text-emerald-700 ring-emerald-200",
-  red: "bg-red-50 text-red-700 ring-red-200",
-  amber: "bg-amber-50 text-amber-800 ring-amber-200",
-  blue: "bg-sky-50 text-sky-700 ring-sky-200",
+  slate: "border-line-2 bg-paper-2 text-ink-2",
+  green: "border-green/30 bg-green-wash text-green",
+  red: "border-red/30 bg-red-wash text-red",
+  amber: "border-amber/30 bg-amber-wash text-amber",
+  blue: "border-sky/30 bg-sky-wash text-sky",
 };
 
-export function Badge({ tone = "slate", children }: { tone?: Tone; children: ReactNode }) {
+const DARK_TONES: Record<Tone, string> = {
+  slate: "border-paper/20 bg-paper/10 text-paper/75",
+  green: "border-[#3fb585]/50 bg-[#3fb585]/15 text-[#7fe0b8]",
+  red: "border-[#ff6a5a]/50 bg-[#ff6a5a]/15 text-[#ff9d92]",
+  amber: "border-[#ffc933]/50 bg-[#ffc933]/15 text-[#ffd96b]",
+  blue: "border-[#7aa7e0]/50 bg-[#7aa7e0]/15 text-[#a9c8ee]",
+};
+
+export function Badge({
+  tone = "slate",
+  dark = false,
+  children,
+}: {
+  tone?: Tone;
+  dark?: boolean;
+  children: ReactNode;
+}) {
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset ${TONES[tone]}`}
+      className={`inline-flex items-center rounded-[4px] border px-1.5 py-[1px] font-mono text-[11px] font-medium leading-[1.5] ${
+        dark ? DARK_TONES[tone] : TONES[tone]
+      }`}
     >
       {children}
     </span>
@@ -55,18 +78,18 @@ export function Badge({ tone = "slate", children }: { tone?: Tone; children: Rea
 /** Small button that opens the source page and highlights the quote. */
 export function EvidenceLink({ evidence, label }: { evidence: Evidence | null; label: string }) {
   const { open } = useEvidence();
-  if (!evidence) return <span className="text-xs text-slate-400">no source</span>;
+  if (!evidence) return <span className="font-mono text-xs text-ink-3">no source</span>;
 
   const tone = evidence.verified ? (evidence.match === "exact" ? "green" : "blue") : "amber";
   const text = evidence.verified
-    ? `p. ${evidence.page}${evidence.match === "close" ? " (close match)" : ""}`
+    ? `p. ${evidence.page}${evidence.match === "close" ? " (close)" : ""}`
     : "unverified";
   return (
     <button
       type="button"
       onClick={() => open({ label, evidence })}
       title={evidence.verified ? "Show this in the document" : "The quote could not be found in the document"}
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ring-1 ring-inset transition hover:brightness-95 ${TONES[tone]}`}
+      className={`inline-flex shrink-0 items-center gap-1 rounded-[4px] border px-1.5 py-[1px] font-mono text-[11px] font-medium leading-[1.5] transition-colors hover:border-current ${TONES[tone]}`}
     >
       {evidence.verified ? <CheckIcon /> : <WarnIcon />}
       {text}
@@ -76,16 +99,28 @@ export function EvidenceLink({ evidence, label }: { evidence: Evidence | null; l
 
 function CheckIcon() {
   return (
-    <svg viewBox="0 0 20 20" className="h-3 w-3" fill="currentColor" aria-hidden>
-      <path d="M16.7 5.3a1 1 0 0 1 0 1.4l-7.5 7.5a1 1 0 0 1-1.4 0L3.3 9.7a1 1 0 1 1 1.4-1.4l3.8 3.8 6.8-6.8a1 1 0 0 1 1.4 0Z" />
+    <svg
+      viewBox="0 0 10 10"
+      className="h-[10px] w-[10px]"
+      fill="currentColor"
+      shapeRendering="crispEdges"
+      aria-hidden
+    >
+      <path d="M8 2h1v1H8zM7 3h1v1H7zM6 4h1v1H6zM5 5h1v1H5zM1 5h1v1H1zM2 6h1v1H2zM3 7h1v1H3zM4 6h1v1H4z" />
     </svg>
   );
 }
 
 function WarnIcon() {
   return (
-    <svg viewBox="0 0 20 20" className="h-3 w-3" fill="currentColor" aria-hidden>
-      <path d="M10 2a1 1 0 0 1 .9.5l7.5 13A1 1 0 0 1 17.5 17h-15a1 1 0 0 1-.9-1.5l7.5-13A1 1 0 0 1 10 2Zm0 5a1 1 0 0 0-1 1v3a1 1 0 1 0 2 0V8a1 1 0 0 0-1-1Zm0 7a1 1 0 1 0 0 2 1 1 0 0 0 0-2Z" />
+    <svg
+      viewBox="0 0 10 10"
+      className="h-[10px] w-[10px]"
+      fill="currentColor"
+      shapeRendering="crispEdges"
+      aria-hidden
+    >
+      <path d="M4 1h2v5H4zM4 7h2v2H4z" />
     </svg>
   );
 }

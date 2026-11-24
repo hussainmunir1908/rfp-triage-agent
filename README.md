@@ -65,6 +65,14 @@ browser and marked **Expired N days ago**, **Due today** or **In N days**. If ev
 passed, the report shows a clear "This RFP has already closed" banner, so nobody spends time on something
 that cannot be bid on. The fit assessment is still shown, because it remains useful for similar future work.
 
+## Interface
+
+The look follows idiaz.io: warm paper, one orange accent, flat bordered boxes and pixel art. The characters and
+scenery are drawn as text grids in `src/components/pixel/art.ts` and rendered as SVG, so they stay sharp at any
+size. While a PDF is processed, three critters work at three stations (read, check, judge), a tile per page lights
+up as the document is read, and a magnifier sweeps the tiles while quotes are checked. The report fills the screen
+with a small margin and adapts from phones to ultrawide displays.
+
 ## How it works
 
 ```
@@ -169,8 +177,12 @@ src/
     page.tsx               entry page
   components/
     Analyzer.tsx           upload, progress and state
+    Landing.tsx            first screen: drop zone, scene, how it works
+    Working.tsx            the loading view: three stations, page tiles, live log
     Report.tsx             the report sections
     EvidenceViewer.tsx     PDF page with highlighted quote
+    Chrome.tsx             header, ticker and footer
+    pixel/                 pixel art as text grids, sprite renderer and the landscape
   lib/
     analyze.ts             the pipeline: extract, verify, judge, decide
     gemini.ts              model pool, structured output, quota handling
