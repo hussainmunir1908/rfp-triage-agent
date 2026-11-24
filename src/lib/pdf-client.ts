@@ -1,6 +1,7 @@
 "use client";
 
 import type { PDFDocumentProxy } from "pdfjs-dist";
+import { joinTextItems } from "./pdf-text";
 import { normalize } from "./verify";
 
 /**
@@ -29,12 +30,7 @@ export async function openPdf(file: File): Promise<PDFDocumentProxy> {
   return pdfjs.getDocument({ data }).promise;
 }
 
-interface TextItemLike {
-  str: string;
-  hasEOL?: boolean;
-}
-
-function isTextItem(item: unknown): item is TextItemLike {
+function isTextItem(item: unknown): item is { str: string } {
   return typeof item === "object" && item !== null && "str" in item;
 }
 
@@ -46,18 +42,7 @@ export async function extractPages(
   for (let i = 1; i <= pdf.numPages; i++) {
     const page = await pdf.getPage(i);
     const content = await page.getTextContent();
-    let text = "";
-    for (const item of content.items) {
-      if (!isTextItem(item)) continue;
-      text += item.str;
-      text += item.hasEOL ? "\n" : " ";
-    }
-    pages.push(
-      text
-        .replace(/[ \t]+\n/g, "\n")
-        .replace(/[ \t]{2,}/g, " ")
-        .trim(),
-    );
+    pages.push(joinTextItems(content.items));
     page.cleanup();
     onPage?.(i, pdf.numPages);
   }

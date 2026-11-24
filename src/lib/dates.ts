@@ -87,6 +87,50 @@ export function statusFor(iso: string, now: Date): { status: DeadlineStatus; day
   return { status: days < 0 ? "expired" : days === 0 ? "today" : "upcoming", days };
 }
 
+/**
+ * Status shown for a deadline. A date the document itself replaced is "superseded", never
+ * "upcoming" or "expired", and an issue date that has passed is just history, not a missed deadline.
+ */
+export function deadlineStatus(
+  d: { date: string; kind: string; superseded: boolean },
+  now: Date,
+): { status: DeadlineStatus; days: number | null } {
+  const base = statusFor(d.date, now);
+  if (d.superseded) return { status: "superseded", days: base.days };
+  if (d.kind === "issued" && base.status === "expired") return { status: "passed", days: base.days };
+  return base;
+}
+
+const REVISED =
+  /\b(revised|revision|extended|extension|amended|amendment|addendum|rescheduled|postponed|updated)\b/i;
+const ORIGINAL = /\b(original|originally|initial|previous|prior|former|superseded|replaced)\b/i;
+
+/**
+ * Safety net for the model's own "superseded" flag. When several dates of the same kind exist and the
+ * label of one says it was revised by an addendum, the others are the dates it replaced.
+ */
+export function markSuperseded<T extends { kind: string; what: string; superseded: boolean }>(
+  items: T[],
+): T[] {
+  const groups = new Map<string, number[]>();
+  items.forEach((d, i) => {
+    if (d.kind === "other") return;
+    groups.set(d.kind, [...(groups.get(d.kind) ?? []), i]);
+  });
+  const replaced = new Set<number>();
+  for (const idx of groups.values()) {
+    if (idx.length < 2) continue;
+    const revised = idx.filter((i) => REVISED.test(items[i].what) && !ORIGINAL.test(items[i].what));
+    const originals = idx.filter((i) => ORIGINAL.test(items[i].what));
+    if (revised.length > 0) {
+      for (const i of idx) if (!revised.includes(i)) replaced.add(i);
+    } else {
+      for (const i of originals) replaced.add(i);
+    }
+  }
+  return items.map((d, i) => (replaced.has(i) && !d.superseded ? { ...d, superseded: true } : d));
+}
+
 export function formatDate(iso: string): string {
   if (!ISO.test(iso)) return iso;
   const [y, m, d] = iso.split("-").map(Number);

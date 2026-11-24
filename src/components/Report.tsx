@@ -1,8 +1,15 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { formatDate, statusFor } from "@/lib/dates";
-import type { DeadlineStatus, EvidenceRef, ReportDeadline, TriageReport } from "@/lib/types";
+import { deadlineStatus, formatDate } from "@/lib/dates";
+import type {
+  CheckStatus,
+  DeadlineStatus,
+  Evidence,
+  EvidenceRef,
+  ReportDeadline,
+  TriageReport,
+} from "@/lib/types";
 import { Badge, Card, EvidenceLink, Section } from "./ui";
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -14,10 +21,23 @@ const CATEGORY_LABELS: Record<string, string> = {
   technical_skill: "Technical skills",
   insurance_bonding: "Insurance and bonding",
   location: "Location and data residency",
+  functional: "What the solution must do",
+  security_compliance: "Security, hosting and compliance",
+  performance_sla: "Performance, service levels and acceptance",
+  submission: "How to respond",
+  contract_terms: "Contract terms",
   other: "Other",
 };
 
+const CHECK_LABELS: Record<CheckStatus, { text: string; tone: "green" | "amber" | "red" | "slate" }> = {
+  met: { text: "Met", tone: "green" },
+  unknown: { text: "Confirm", tone: "amber" },
+  at_risk: { text: "At risk", tone: "amber" },
+  blocked: { text: "Blocked", tone: "red" },
+};
+
 const KIND_ORDER: Record<string, number> = {
+  issued: 0,
   questions_due: 1,
   site_visit: 2,
   pre_proposal_conference: 3,
@@ -34,6 +54,8 @@ function plural(n: number, word: string) {
 
 function StatusBadge({ status, days }: { status: DeadlineStatus; days: number | null }) {
   if (status === "undated") return <Badge>No calendar date</Badge>;
+  if (status === "superseded") return <Badge>Replaced by a later date</Badge>;
+  if (status === "passed") return <Badge>Already happened</Badge>;
   if (status === "expired") return <Badge tone="red">Expired {plural(Math.abs(days ?? 0), "day")} ago</Badge>;
   if (status === "today") return <Badge tone="amber">Due today</Badge>;
   const soon = (days ?? 99) <= 7;
@@ -43,10 +65,10 @@ function StatusBadge({ status, days }: { status: DeadlineStatus; days: number | 
 export function Report({ report }: { report: TriageReport }) {
   // Recompute against the viewer's clock so a saved report never looks fresher than it is.
   const now = useMemo(() => new Date(), []);
-  const deadlines: (ReportDeadline & { live: ReturnType<typeof statusFor> })[] = useMemo(
+  const deadlines: (ReportDeadline & { live: ReturnType<typeof deadlineStatus> })[] = useMemo(
     () =>
       report.deadlines
-        .map((d) => ({ ...d, live: statusFor(d.date, now) }))
+        .map((d) => ({ ...d, live: deadlineStatus(d, now) }))
         .sort((a, b) => {
           if (a.date !== b.date && a.live.days !== null && b.live.days !== null)
             return a.live.days - b.live.days;
@@ -57,7 +79,9 @@ export function Report({ report }: { report: TriageReport }) {
     [report.deadlines, now],
   );
 
-  const proposal = deadlines.filter((d) => d.kind === "proposal_due" && d.live.status !== "undated");
+  const proposal = deadlines.filter(
+    (d) => d.kind === "proposal_due" && d.live.status !== "undated" && d.live.status !== "superseded",
+  );
   const proposalExpired = proposal.length > 0 && proposal.every((d) => d.live.status === "expired");
   const anyExpired = deadlines.some((d) => d.live.status === "expired");
   const lastProposal = proposal.at(-1);
@@ -71,6 +95,7 @@ export function Report({ report }: { report: TriageReport }) {
   }, [report.requirements]);
 
   const v = report.verification;
+  const c = report.coverage;
   const bid = report.decision === "BID";
 
   return (
@@ -132,8 +157,8 @@ export function Report({ report }: { report: TriageReport }) {
             {v.verified} of {v.total} cited quotes found in the document
           </p>
           <p className="text-xs text-slate-500">
-            Every fact below links to the page it came from. The quotes are checked against the PDF text by
-            code, not by the model.
+            Every fact below links to the page it came from. Code checks that each quote exists in the PDF
+            text; it cannot prove the model read it correctly, so open the page to confirm anything important.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -141,6 +166,21 @@ export function Report({ report }: { report: TriageReport }) {
           {v.close > 0 ? <Badge tone="blue">{v.close} close</Badge> : null}
           {v.unverified > 0 ? <Badge tone="amber">{v.unverified} unverified</Badge> : null}
           {v.dates_corrected > 0 ? <Badge tone="amber">{v.dates_corrected} dates corrected</Badge> : null}
+        </div>
+        <div className="basis-full border-t border-slate-100 pt-2">
+          <p className="text-sm font-semibold text-slate-900">
+            {c.statements - c.unreviewed} of {c.statements} obligation statements in the document accounted
+            for
+          </p>
+          <p className="text-xs text-slate-500">
+            Code finds every sentence with must, shall, required, [M] or a numbered requirement id.{" "}
+            {c.matched} were already in the first pass
+            {c.added > 0 ? `, ${c.added} more were added by a second look` : ""}
+            {c.set_aside > 0 ? `, ${c.set_aside} were set aside as definitions or boilerplate` : ""}.
+            {c.unreviewed > 0
+              ? ` ${c.unreviewed} could not be reviewed, so the requirements list may be incomplete.`
+              : ""}
+          </p>
         </div>
       </Card>
 
@@ -162,6 +202,7 @@ export function Report({ report }: { report: TriageReport }) {
                 >
                   {f.value}
                 </dd>
+                <Caution evidence={f.evidence} />
               </div>
             ))}
           </dl>
@@ -187,12 +228,35 @@ export function Report({ report }: { report: TriageReport }) {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {deadlines.map((d) => (
-                  <tr key={d.id} className={d.live.status === "expired" ? "bg-red-50/40" : ""}>
-                    <td className="px-4 py-3 align-top font-medium text-slate-900">{d.what}</td>
+                  <tr
+                    key={d.id}
+                    className={
+                      d.live.status === "expired"
+                        ? "bg-red-50/40"
+                        : d.live.status === "superseded"
+                          ? "text-slate-400"
+                          : ""
+                    }
+                  >
+                    <td
+                      className={`px-4 py-3 align-top font-medium ${
+                        d.live.status === "superseded" ? "text-slate-500" : "text-slate-900"
+                      }`}
+                    >
+                      {d.what}
+                    </td>
                     <td className="px-4 py-3 align-top">
                       {d.date !== "Not stated" ? (
                         <>
-                          <span className="text-slate-900">{formatDate(d.date)}</span>
+                          <span
+                            className={
+                              d.live.status === "superseded"
+                                ? "text-slate-500 line-through"
+                                : "text-slate-900"
+                            }
+                          >
+                            {formatDate(d.date)}
+                          </span>
                           {d.time_text ? (
                             <span className="block text-xs text-slate-500">{d.time_text}</span>
                           ) : null}
@@ -236,7 +300,9 @@ export function Report({ report }: { report: TriageReport }) {
                         {r.text}{" "}
                         <Badge tone={r.mandatory ? "red" : "slate"}>
                           {r.mandatory ? "Mandatory" : "Optional"}
-                        </Badge>
+                        </Badge>{" "}
+                        {r.source === "sweep" ? <Badge tone="blue">Added by second look</Badge> : null}
+                        <Caution evidence={r.evidence} />
                       </span>
                       <EvidenceLink evidence={r.evidence} label={r.text} />
                     </li>
@@ -247,6 +313,41 @@ export function Report({ report }: { report: TriageReport }) {
           </div>
         )}
       </Section>
+
+      {/* Can we qualify? ----------------------------------------------- */}
+      {report.qualification_checks.length > 0 ? (
+        <Section
+          title="Can we qualify?"
+          hint="Mandatory eligibility items checked against the idiaz.io profile"
+        >
+          <Card>
+            <ul className="divide-y divide-slate-100">
+              {report.qualification_checks.map((q) => {
+                const label = CHECK_LABELS[q.status];
+                return (
+                  <li
+                    key={q.requirement_id}
+                    className="flex flex-wrap items-start justify-between gap-2 py-2.5 text-sm"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="text-slate-800">
+                        <Badge tone={label.tone}>{label.text}</Badge> {q.requirement}
+                      </p>
+                      <p className="mt-0.5 text-slate-500">{q.note}</p>
+                    </div>
+                    <EvidenceLink evidence={q.evidence} label={q.requirement} />
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-500">
+              The profile does not state years in business, past projects, certifications or insurance, so
+              those show as Confirm. An unconfirmed item caps the score at 8, or at 7 when three or more are
+              open.
+            </p>
+          </Card>
+        </Section>
+      ) : null}
 
       {/* 04 Fit score -------------------------------------------------- */}
       <Section title="Fit score" hint="Starts at 5, each factor adds or subtracts">
@@ -346,7 +447,9 @@ export function Report({ report }: { report: TriageReport }) {
             <ul className="divide-y divide-slate-100">
               {report.ambiguities.map((a) => (
                 <li key={a.id} className="flex flex-wrap items-start justify-between gap-2 py-2 text-sm">
-                  <span className="min-w-0 flex-1 text-slate-800">{a.issue}</span>
+                  <span className="min-w-0 flex-1 text-slate-800">
+                    {a.issue} {a.source === "figures" ? <Badge tone="blue">Found by code</Badge> : null}
+                  </span>
                   <EvidenceLink evidence={a.evidence} label="Ambiguity" />
                 </li>
               ))}
@@ -358,6 +461,12 @@ export function Report({ report }: { report: TriageReport }) {
       <JsonExport report={report} />
     </div>
   );
+}
+
+/** Shown when a figure in an item is missing from the quote that is meant to back it. */
+function Caution({ evidence }: { evidence: Evidence | null }) {
+  if (!evidence?.caution) return null;
+  return <span className="mt-0.5 block text-xs text-amber-700">{evidence.caution}</span>;
 }
 
 function toIsoLocal(d: Date): string {

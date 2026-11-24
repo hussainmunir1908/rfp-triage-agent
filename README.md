@@ -13,9 +13,13 @@ Built for the idiaz.io internship challenge.
 1. **Reads the whole document.** The PDF is parsed in the browser, page by page, and tagged `=== PAGE n ===`.
 2. **Extracts facts.** Agency, scope, contract type and value, place of performance, how to submit.
 3. **Finds every date.** Proposal deadline, Q&A cut-off, site visits, award and start dates, as real calendar dates.
-4. **Lists the must-haves.** Certifications, set-asides, clearances, past performance, staffing, insurance, location rules.
-5. **Scores the fit** from 0 to 10 against the idiaz.io profile, with a one-line reason for each factor.
-6. **Makes the call.** Bid or no-bid, the three strongest reasons, deal-breakers, what would change the call, and
+4. **Lists the must-haves.** Eligibility (set-asides, certifications, clearances, past performance, staffing,
+   insurance, location), what the solution must do, security and hosting rules, service levels and acceptance
+   thresholds, how to submit, and contract terms that put cost or risk on the contractor.
+5. **Checks eligibility** against the idiaz.io profile, one line per mandatory qualification: met, confirm, at risk or
+   blocked.
+6. **Scores the fit** from 0 to 10, with a one-line reason for each factor.
+7. **Makes the call.** Bid or no-bid, the three strongest reasons, deal-breakers, what would change the call, and
    questions to ask the agency.
 
 Ground rules the agent follows: only the document is used, missing information is written as "Not stated",
@@ -38,10 +42,20 @@ team spends a week of proposal writing. So the agent does not ask to be trusted;
   dropped quietly.
 - Dates get a second check (`src/lib/dates.ts`): the date text is re-parsed from the document itself and
   compared with the model's own conversion. If they disagree, the document wins and the report says it
-  corrected the date.
+  corrected the date. A date the document itself replaced (struck through, "revised by Addendum No. 1") is shown
+  as **replaced**, not as a live deadline, and does not count when deciding whether the RFP has closed.
+- A quote existing does not prove it supports the claim, so figures are checked too (`src/lib/figures.ts`): if an
+  item says "$2M" and the quote does not contain it, the item is flagged.
+- Totals and percentages the document states about itself are re-added by code. The model only copies the
+  numbers; if "about 72%" sits next to a table that adds up to 79%, the report flags the contradiction.
+- Recall is checked as well as accuracy (`src/lib/coverage.ts`). Code finds every sentence that sounds like an
+  obligation (must, shall, required, [M], numbered requirement ids, "the Contractor will ...") and lists the ones no
+  extracted item quotes. Those go to a second model look that can only classify them; it cannot invent a quote.
+  The report states how many obligation statements were accounted for.
 - In the UI, every item has a small page badge. Clicking it opens the **original PDF page** with the quoted
   passage outlined, so a reviewer can confirm any claim in a couple of seconds.
-- The header shows how many cited quotes were found, for example "24 of 24 cited quotes found in the document".
+- The header shows how many cited quotes were found, for example "24 of 24 cited quotes found in the document". This
+  means the quote exists, not that the reading is right; the page badge is how to confirm that.
 
 ### 2. Expired-deadline flags
 
@@ -59,10 +73,10 @@ PDF file
   |  pdf.js reads the text per page
   v
 pages[] -------------- POST /api/analyze ----> 1. Extract    Gemini, JSON schema, quotes + pages
-                                                2. Verify     code checks quotes, pages, dates
-progress events <------ streamed NDJSON ------  3. Judge      Gemini scores factors from the verified items
+                                                2. Verify     code checks quotes, pages, dates, figures
+progress events <------ streamed NDJSON ------     + Coverage  code finds obligations nobody quoted, Gemini classifies them
+report + PDF viewer                             3. Judge      Gemini checks eligibility and scores factors
                                                 4. Decide     code turns factor impacts into score + call
-report + PDF viewer
 ```
 
 Design decisions:
@@ -74,9 +88,14 @@ Design decisions:
   appendix can be weighed against the scope on page 3. Chunking tends to lose exactly those links.
 - **The judge never sees the PDF.** It reasons over the already verified extraction, which keeps it from
   inventing facts and makes its citations point at items the reader can open.
+- **Unknown is not the same as met.** The company profile does not state years in business, past projects,
+  certifications or insurance. The judge must mark each mandatory qualification as met, confirm, at risk or
+  blocked, and cannot call something met unless the profile says so. Items marked confirm are listed in the report
+  as things to check before bidding.
 - **The decision rule lives in code.** The model proposes factors with an impact from -3 to +3. Code adds them
-  to a base score of 5 and applies the rules: a deal-breaker caps the score at 3, construction or goods caps it at
-  2, and a bid needs a score of 6 or more. The score is therefore reproducible and easy to explain.
+  to a base score of 5 and applies the rules: any unconfirmed mandatory qualification caps the score at 8 (7 when
+  three or more are open), a deal-breaker or a blocked qualification caps it at 3, construction or goods caps it
+  at 2, and a bid needs a score of 6 or more. The score is therefore reproducible and easy to explain.
 - **Structured output.** The model is constrained to a JSON schema (defined once with zod and used for both the
   request and validation), so the UI and the API always receive the same shape.
 
@@ -84,7 +103,8 @@ Design decisions:
 
 The free Gemini tier allows only a small number of requests per day for each model (about 20 at the time of
 writing), and individual models are sometimes overloaded. The agent therefore uses **two model calls per RFP**
-and keeps a pool of models in `src/lib/gemini.ts`. When a model reports an exhausted daily quota it is skipped,
+(three when the coverage check finds obligations the first reading did not quote) and keeps a pool of models in
+`src/lib/gemini.ts`. When a model reports an exhausted daily quota it is skipped,
 and the next one is used. Overloaded models are retried in short sweeps. Repeating the same document is served
 from a small in-memory cache and costs no request. If every model is exhausted the UI says so plainly.
 
@@ -104,11 +124,11 @@ npm run dev
 
 Open http://localhost:3000 and drop in a PDF.
 
-| Variable | Required | Purpose |
-| --- | --- | --- |
-| `GEMINI_API_KEY` | yes | Gemini API key. Never committed. |
-| `GEMINI_MODELS` | no | Ordered, comma-separated model pool. |
-| `GEMINI_THINKING_LEVEL` | no | `MINIMAL`, `LOW` (default), `MEDIUM` or `HIGH`. |
+| Variable                | Required | Purpose                                         |
+| ----------------------- | -------- | ----------------------------------------------- |
+| `GEMINI_API_KEY`        | yes      | Gemini API key. Never committed.                |
+| `GEMINI_MODELS`         | no       | Ordered, comma-separated model pool.            |
+| `GEMINI_THINKING_LEVEL` | no       | `MINIMAL`, `LOW` (default), `MEDIUM` or `HIGH`. |
 
 ## API
 
@@ -124,11 +144,12 @@ the response is the final report as JSON.
 {
   "decision": "BID" | "NO_BID",
   "fit_score": 0,                       // 0 to 10
-  "deadlines": [{ "what": "", "date": "2025-04-30", "status": "expired", "evidence": { "page": 2, "quote": "", "verified": true } }],
+  "deadlines": [{ "what": "", "date": "2025-04-30", "status": "expired", "superseded": false, "evidence": { "page": 2, "quote": "", "verified": true } }],
   "requirements": [{ "category": "", "text": "", "mandatory": true, "evidence": {} }],
+  "qualification_checks": [{ "requirement": "", "status": "met" | "unknown" | "at_risk" | "blocked", "note": "" }],
   "reasons": [{ "text": "", "refs": [] }],   // the three strongest
   "factors": [], "deal_breakers": [], "would_change_mind": [], "open_questions": [],
-  "ambiguities": [], "summary": "", "facts": [], "verification": {}
+  "ambiguities": [], "summary": "", "facts": [], "verification": {}, "coverage": {}
 }
 ```
 
@@ -153,9 +174,13 @@ src/
     analyze.ts             the pipeline: extract, verify, judge, decide
     gemini.ts              model pool, structured output, quota handling
     verify.ts              quote and page checking
-    dates.ts               date parsing, correction, expiry status
+    figures.ts             figure support check and self-contradicting totals
+    coverage.ts            finds obligation sentences nobody quoted
+    dates.ts               date parsing, correction, superseded and expiry status
+    score.ts               the decision rule
     prompts.ts             prompts and the company profile
     types.ts               schemas and report types
+    pdf-text.ts            joins pdf.js text items into page text
     pdf-client.ts          browser PDF reading and page rendering
     pdf-server.ts          PDF text extraction for the multipart API
     cache.ts               in-memory result cache
@@ -164,6 +189,8 @@ src/
 ## Limits
 
 - Text-based PDFs only. Scanned documents need OCR, which is out of scope.
+- The coverage check sends at most 150 uncovered statements to the second look. A long document full of boilerplate
+  can exceed that; the report then says how many statements were not reviewed.
 - The company profile is fixed in `src/lib/prompts.ts`. Set-asides are treated as unknown unless the document
   says otherwise.
 - A language model still reads the document. The evidence checks make mistakes visible; they do not make the

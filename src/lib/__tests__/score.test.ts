@@ -25,6 +25,23 @@ describe("decide", () => {
     expect(r).toEqual({ fitScore: 2, decision: "NO_BID", fastNoBid: true });
   });
 
+  it("will not give a perfect score while a mandatory qualification is unconfirmed", () => {
+    const strong = { impacts: [3, 2, 1, 1], dealBreakers: 0, workCategory: "software_development" as const };
+    expect(decide({ ...strong, checks: ["met", "met"] }).fitScore).toBe(10);
+    expect(decide({ ...strong, checks: ["met", "unknown"] })).toMatchObject({ fitScore: 8, decision: "BID" });
+    expect(decide({ ...strong, checks: ["unknown", "unknown", "unknown"] }).fitScore).toBe(7);
+  });
+
+  it("treats a blocked qualification as a deal-breaker", () => {
+    const r = decide({
+      impacts: [3, 3],
+      dealBreakers: 0,
+      workCategory: "software_development",
+      checks: ["met", "blocked"],
+    });
+    expect(r).toMatchObject({ fitScore: 3, decision: "NO_BID" });
+  });
+
   it("keeps the score between 0 and 10", () => {
     expect(decide({ impacts: [-3, -3, -3], dealBreakers: 0, workCategory: "other" }).fitScore).toBe(0);
     expect(decide({ impacts: [3, 3, 3], dealBreakers: 0, workCategory: "other" }).fitScore).toBe(10);

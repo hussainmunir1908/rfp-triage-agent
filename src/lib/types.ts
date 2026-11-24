@@ -13,6 +13,7 @@ const factSchema = z.object({
 });
 
 export const deadlineKinds = [
+  "issued",
   "proposal_due",
   "questions_due",
   "site_visit",
@@ -32,8 +33,29 @@ export const requirementCategories = [
   "technical_skill",
   "insurance_bonding",
   "location",
+  "functional",
+  "security_compliance",
+  "performance_sla",
+  "submission",
+  "contract_terms",
   "other",
 ] as const;
+
+const CATEGORY_GUIDE = `Pick the closest one:
+certification = licences, registrations and audit reports a firm must hold (SOC 2, ISO, state registration, UBI);
+set_aside = eligibility status or size limits (small business, 8(a), subcontracting share limits);
+security_clearance = ONLY government or facility clearances;
+past_performance = years in business, similar projects, references;
+staffing = named roles, key personnel, headcount, onsite attendance;
+technical_skill = required skills, tools, platforms, standards the team must work with;
+insurance_bonding = insurance and bonding;
+location = where work or data must be, onsite or residency rules;
+functional = what the solution must do or deliver (features, integrations, migrations, deliverables);
+security_compliance = encryption, hosting, accessibility, authentication, data protection, AI-use rules;
+performance_sla = uptime, response times, acceptance thresholds, service levels;
+submission = how to respond: format, page limits, forms, attachments, communication rules;
+contract_terms = payment, liability, indemnity, term, termination, validity period, ownership;
+other = anything else.`;
 
 export const workCategories = [
   "software_development",
@@ -54,12 +76,18 @@ const deadlineItemSchema = z.object({
     .string()
     .describe("YYYY-MM-DD if the document gives a calendar date, otherwise an empty string"),
   time_text: z.string().describe("Time and timezone as written, or empty"),
+  superseded: z
+    .boolean()
+    .describe(
+      "true if the document itself says this date was replaced, moved or extended (struck through, " +
+        "'revised by addendum', 'extended from X to Y'). The replacement date is a separate item with false.",
+    ),
   page: z.number().int(),
   quote: z.string().describe("Verbatim excerpt containing the date"),
 });
 
 const requirementItemSchema = z.object({
-  category: z.enum(requirementCategories),
+  category: z.enum(requirementCategories).describe(CATEGORY_GUIDE),
   text: z.string().describe("The requirement in one clear sentence"),
   mandatory: z.boolean().describe("true if the document says must / shall / required"),
   page: z.number().int(),
@@ -71,6 +99,29 @@ const ambiguityItemSchema = z.object({
   page: z.number().int(),
   quote: z.string(),
 });
+
+/**
+ * Numbers the document claims about itself ("about 72% of annual volume", "Total 14,000"). The model only
+ * copies the numbers; code does the arithmetic, so a mismatch is found without trusting model maths.
+ */
+const figureCheckSchema = z.object({
+  claim: z.string().describe("What the document claims, in a few words"),
+  claim_quote: z.string().describe("Verbatim excerpt stating the claimed total or percentage"),
+  claim_page: z.number().int(),
+  claimed_total: z
+    .number()
+    .nullable()
+    .describe("The stated total the parts should add up to, or null if the claim is a percentage"),
+  claimed_percent: z.number().nullable().describe("The stated percentage, or null"),
+  whole: z
+    .number()
+    .nullable()
+    .describe("The number the percentage is taken of (for example the overall total), or null"),
+  parts: z.array(z.number()).describe("The listed values, copied exactly from the table or list"),
+  parts_page: z.number().int().describe("Page where the listed values are"),
+});
+
+export type FigureCheck = z.infer<typeof figureCheckSchema>;
 
 export const extractionSchema = z.object({
   summary: z
@@ -89,13 +140,52 @@ export const extractionSchema = z.object({
   deadlines: z.array(deadlineItemSchema),
   requirements: z.array(requirementItemSchema),
   ambiguities: z.array(ambiguityItemSchema),
+  figure_checks: z.array(figureCheckSchema),
   work_category: z.enum(workCategories).describe("Best description of the work being procured"),
 });
 
 export type Extraction = z.infer<typeof extractionSchema>;
 
+/**
+ * Second pass over obligation sentences the first pass did not cover. Each statement is
+ * a verbatim span chosen by code, so the model only classifies it and cannot invent a quote.
+ */
+export const sweepSchema = z.object({
+  items: z.array(
+    z.object({
+      id: z.number().int().describe("The id of the statement"),
+      is_requirement: z
+        .boolean()
+        .describe("false for definitions, headings, instructions to the agency and boilerplate"),
+      category: z.enum(requirementCategories).describe(CATEGORY_GUIDE),
+      text: z.string().describe("The requirement in one clear sentence, empty if not a requirement"),
+      mandatory: z.boolean().describe("true if the statement says must / shall / required / [M]"),
+    }),
+  ),
+});
+
+export type Sweep = z.infer<typeof sweepSchema>;
+
+export const checkStatuses = ["met", "unknown", "at_risk", "blocked"] as const;
+export type CheckStatus = (typeof checkStatuses)[number];
+
 /* The judging step reasons over already-verified items by id. */
 export const judgementSchema = z.object({
+  qualification_checks: z
+    .array(
+      z.object({
+        requirement_id: z.string().describe("Id of the mandatory eligibility requirement, like r4"),
+        status: z
+          .enum(checkStatuses)
+          .describe(
+            "met = the company profile clearly satisfies it; unknown = the profile does not say, must be " +
+              "confirmed; at_risk = hard or costly for a small studio but possible; blocked = the profile " +
+              "clearly cannot meet it",
+          ),
+        note: z.string().describe("One line: what the profile says or lacks, and what to confirm"),
+      }),
+    )
+    .describe("One entry for every mandatory eligibility or qualification requirement"),
   factors: z
     .array(
       z.object({
@@ -143,9 +233,11 @@ export interface Evidence {
   match: MatchKind;
   /** Set when the model cited the wrong page and the quote was found elsewhere. */
   corrected_from_page?: number;
+  /** Set when a figure in the item is not backed by the quote (the quote exists, but may not prove the claim). */
+  caution?: string;
 }
 
-export type DeadlineStatus = "expired" | "today" | "upcoming" | "undated";
+export type DeadlineStatus = "expired" | "today" | "upcoming" | "undated" | "superseded" | "passed";
 
 export interface ReportDeadline {
   id: string;
@@ -154,6 +246,8 @@ export interface ReportDeadline {
   date: string; // ISO date, or "Not stated"
   date_text: string;
   time_text: string;
+  /** The document replaced this date with a later one (for example by addendum). */
+  superseded: boolean;
   status: DeadlineStatus;
   days_from_analysis: number | null;
   evidence: Evidence;
@@ -166,6 +260,29 @@ export interface ReportRequirement {
   text: string;
   mandatory: boolean;
   evidence: Evidence;
+  /** "sweep" when the first pass missed it and the coverage check added it. */
+  source?: "sweep";
+}
+
+export interface ReportQualification {
+  requirement_id: string;
+  requirement: string;
+  status: CheckStatus;
+  note: string;
+  evidence: Evidence | null;
+}
+
+export interface CoverageStats {
+  /** Obligation statements (must / shall / required / [M] / numbered requirements) found in the text. */
+  statements: number;
+  /** Already covered by an item from the first pass. */
+  matched: number;
+  /** Added as requirements by the coverage check. */
+  added: number;
+  /** Reviewed and set aside (definitions, headings, boilerplate). */
+  set_aside: number;
+  /** Not reviewed, because the check failed or the document has more than the limit. */
+  unreviewed: number;
 }
 
 export interface ReportFact {
@@ -179,6 +296,8 @@ export interface ReportAmbiguity {
   id: string;
   issue: string;
   evidence: Evidence;
+  /** "figures" when code found numbers in the document that do not add up. */
+  source?: "figures";
 }
 
 export interface EvidenceRef {
@@ -219,6 +338,7 @@ export interface TriageReport {
   facts: ReportFact[];
   deadlines: ReportDeadline[];
   requirements: ReportRequirement[];
+  qualification_checks: ReportQualification[];
   reasons: ReportReason[];
   factors: ReportFactor[];
   deal_breakers: ReportReason[];
@@ -228,6 +348,7 @@ export interface TriageReport {
   recommendation_summary: string;
   work_category: string;
   verification: VerificationStats;
+  coverage: CoverageStats;
   /** True when every proposal-deadline found in the document is already in the past. */
   expired: boolean;
   /** True when this exact document was analysed before and no new model call was made. */

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { datesIn, resolveDate, statusFor } from "../dates";
+import { datesIn, deadlineStatus, markSuperseded, resolveDate, statusFor } from "../dates";
 
 describe("datesIn", () => {
   it("reads explicit calendar dates", () => {
@@ -45,5 +45,63 @@ describe("statusFor", () => {
 
   it("treats missing dates as undated", () => {
     expect(statusFor("Not stated", now)).toEqual({ status: "undated", days: null });
+  });
+});
+
+describe("markSuperseded", () => {
+  const d = (kind: string, what: string, superseded = false) => ({ kind, what, superseded });
+
+  it("marks the original date when a later one is labelled as revised by an addendum", () => {
+    const out = markSuperseded([
+      d("proposal_due", "Proposals due (original)"),
+      d("proposal_due", "Proposals due (revised by Addendum No. 1)"),
+      d("questions_due", "Written questions due"),
+    ]);
+    expect(out.map((x) => x.superseded)).toEqual([true, false, false]);
+  });
+
+  it("marks the plain earlier entry when only the later one says it was revised", () => {
+    const out = markSuperseded([
+      d("proposal_due", "Proposals due"),
+      d("proposal_due", "Proposals due, extended"),
+    ]);
+    expect(out.map((x) => x.superseded)).toEqual([true, false]);
+  });
+
+  it("leaves unrelated dates of the same kind alone", () => {
+    const out = markSuperseded([
+      d("pre_proposal_conference", "Deadline to request the meeting link"),
+      d("pre_proposal_conference", "Pre-proposal conference"),
+      d("other", "Answers posted"),
+      d("other", "Finalist demonstrations"),
+    ]);
+    expect(out.every((x) => !x.superseded)).toBe(true);
+  });
+
+  it("keeps a flag the model already set", () => {
+    expect(markSuperseded([d("proposal_due", "Proposals due", true)])[0].superseded).toBe(true);
+  });
+});
+
+describe("deadlineStatus", () => {
+  const now = new Date(2026, 10, 24, 9, 0);
+
+  it("shows a replaced date as superseded, never upcoming or expired", () => {
+    expect(deadlineStatus({ date: "2027-01-08", kind: "proposal_due", superseded: true }, now).status).toBe(
+      "superseded",
+    );
+    expect(deadlineStatus({ date: "2025-01-08", kind: "proposal_due", superseded: true }, now).status).toBe(
+      "superseded",
+    );
+  });
+
+  it("treats a past issue date as history, not a missed deadline", () => {
+    expect(deadlineStatus({ date: "2026-11-20", kind: "issued", superseded: false }, now)).toEqual({
+      status: "passed",
+      days: -4,
+    });
+    expect(deadlineStatus({ date: "2026-11-20", kind: "questions_due", superseded: false }, now).status).toBe(
+      "expired",
+    );
   });
 });
