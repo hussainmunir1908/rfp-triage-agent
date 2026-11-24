@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { findUncovered } from "../coverage";
+import { findUncovered, pickForReview, type Statement } from "../coverage";
 import { buildPageIndex, checkQuote } from "../verify";
 
 const page = [
@@ -62,5 +62,53 @@ describe("findUncovered", () => {
     const { uncovered } = findUncovered([text], []);
     expect(uncovered).toHaveLength(1);
     expect(uncovered[0].text).toBe(text);
+  });
+
+  it("catches restrictions and consequences written without must or shall", () => {
+    const sentences = [
+      "Failure to reach 90% Acceptable within 30 days of a cure notice is grounds for termination for default.",
+      "After opening, proposals may not be withdrawn for 90 days.",
+      "The County may terminate for convenience on 30 days' written notice, or for default as described in Section 9.",
+      "A day porter keeps public areas clean and responds to spills within 15 minutes of a call.",
+      "Signed Non-Collusion Affidavit (Form 5), notarized.",
+    ];
+    for (const sentence of sentences) {
+      const { uncovered } = findUncovered([sentence], []);
+      expect(uncovered, sentence).toHaveLength(1);
+    }
+  });
+
+  it("does not turn plain background text into statements", () => {
+    const text =
+      "Larkspur County is in Ohio and has five facilities. The Board meets on Tuesdays at the courthouse.";
+    expect(findUncovered([text], []).statements).toEqual([]);
+  });
+});
+
+describe("pickForReview", () => {
+  const make = (n: number, text: (i: number) => string): Statement[] =>
+    Array.from({ length: n }, (_, i) => ({ id: i + 1, page: Math.floor(i / 10) + 1, text: text(i) }));
+
+  it("keeps everything when it fits", () => {
+    const all = make(5, () => "The contractor must do the work.");
+    expect(pickForReview(all, 10)).toEqual(all);
+  });
+
+  it("spreads a cut over the whole document instead of taking the first pages", () => {
+    const all = make(300, () => "The contractor must do the work.");
+    const picked = pickForReview(all, 100);
+    expect(picked).toHaveLength(100);
+    expect(Math.max(...picked.map((s) => s.page))).toBeGreaterThanOrEqual(28);
+    expect(picked.map((s) => s.id)).toEqual([...picked.map((s) => s.id)].sort((a, b) => a - b));
+  });
+
+  it("takes statements with strong obligation words before weaker ones", () => {
+    const all = make(200, (i) =>
+      i % 4 === 0 ? "The vendor must hold a license." : "The county may deduct a fee.",
+    );
+    const picked = pickForReview(all, 80);
+    expect(picked).toHaveLength(80);
+    const strong = all.filter((s) => s.text.includes("must"));
+    expect(strong.every((s) => picked.includes(s))).toBe(true);
   });
 });

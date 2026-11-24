@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { findUncovered } from "./coverage";
+import { findUncovered, pickForReview } from "./coverage";
 import { dateTextInQuote, deadlineStatus, markSuperseded, resolveDate } from "./dates";
 import { checkFigureClaims, unsupportedFigures } from "./figures";
 import { generateJson } from "./gemini";
@@ -203,7 +203,7 @@ export async function analyzeRfp(args: {
     ...ambiguities.map((a) => a.evidence),
   ].filter((e): e is Evidence => e !== null && e.verified);
   const { statements, uncovered } = findUncovered(pages, cited);
-  const batch = uncovered.slice(0, MAX_SWEEP);
+  const batch = pickForReview(uncovered, MAX_SWEEP);
 
   /* 3. Judge, which also reviews the uncovered statements ------------- */
   progress(

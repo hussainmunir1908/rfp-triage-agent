@@ -50,7 +50,8 @@ team spends a week of proposal writing. So the agent does not ask to be trusted;
   numbers; if "about 72%" sits next to a table that adds up to 79%, the report flags the contradiction.
 - Recall is checked as well as accuracy (`src/lib/coverage.ts`). Code finds every sentence that sounds like an
   obligation (must, shall, required, [M], numbered requirement ids, "the Contractor will ...") and lists the ones no
-  extracted item quotes. Those go to the judging call, which can only classify them; it cannot invent a quote.
+  extracted item quotes. Besides must / shall / required, it also looks for "may not", "grounds for", "terminate",
+  "non-responsive" and deadlines in days. Those go to the judging call, which can only classify them; it cannot invent a quote.
   The report states how many obligation statements were accounted for.
 - In the UI, every item has a small page badge. Clicking it opens the **original PDF page** with the quoted
   passage outlined, so a reviewer can confirm any claim in a couple of seconds.
@@ -189,8 +190,11 @@ src/
 ## Limits
 
 - Text-based PDFs only. Scanned documents need OCR, which is out of scope.
-- The coverage check hands at most 120 uncovered statements to the judging call. A long document full of boilerplate
-  can exceed that; the report then says how many statements were not reviewed.
+- The coverage check hands at most 120 uncovered statements to the judging call. When there are more, those with
+  strong obligation words go first and the rest are spread across all pages, and the report says how many were not
+  reviewed. It only finds obligations that contain cue words, so a requirement worded without them can be missed.
+- When the main models are overloaded the request can fall back to a lighter model. It lists noticeably fewer
+  requirements, and the report says when that happened.
 - The company profile is fixed in `src/lib/prompts.ts`. Set-asides are treated as unknown unless the document
   says otherwise.
 - A language model still reads the document. The evidence checks make mistakes visible; they do not make the

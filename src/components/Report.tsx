@@ -169,18 +169,25 @@ export function Report({ report }: { report: TriageReport }) {
         </div>
         <div className="basis-full border-t border-slate-100 pt-2">
           <p className="text-sm font-semibold text-slate-900">
-            {c.statements - c.unreviewed} of {c.statements} obligation statements in the document accounted
-            for
+            Recall check: {c.statements - c.unreviewed} of {c.statements} sentences that sound like
+            obligations were accounted for
           </p>
           <p className="text-xs text-slate-500">
-            Code finds every sentence with must, shall, required, [M] or a numbered requirement id.{" "}
-            {c.matched} were already in the first pass
+            Code looks for sentences with words like must, shall, required, may not, grounds for, terminate or
+            a deadline in days, plus numbered requirement ids. {c.matched} were already in the first pass
             {c.added > 0 ? `, ${c.added} more were added by a second look` : ""}
             {c.set_aside > 0 ? `, ${c.set_aside} were set aside as definitions or boilerplate` : ""}.
             {c.unreviewed > 0
               ? ` ${c.unreviewed} could not be reviewed, so the requirements list may be incomplete.`
-              : ""}
+              : ""}{" "}
+            An obligation worded without those cues is not covered by this check.
           </p>
+          {/lite/i.test(report.model) ? (
+            <p className="mt-1 text-xs font-medium text-amber-700">
+              The main model was busy, so part of this report was written by a lighter fallback model (
+              {report.model}). It tends to list fewer requirements; run it again later for a fuller read.
+            </p>
+          ) : null}
         </div>
       </Card>
 

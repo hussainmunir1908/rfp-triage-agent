@@ -26,7 +26,11 @@ const KEYWORD = new RegExp(
     String.raw`\bnot be accepted\b`,
     // duties written as "the Contractor will ..." and limits written as numbers
     String.raw`\b(?:contractor|proposer|vendor|offeror|bidder)s? (?:will|may not)\b`,
-    String.raw`\b(?:no more than|no later than|not exceed|at least)\b`,
+    String.raw`\b(?:no more than|no later than|not exceed|at least|no less than|not less than|minimum of)\b`,
+    // restrictions, consequences and deadlines that are written without "must" or "shall"
+    String.raw`\b(?:may not|may (?:issue|deduct|withhold|reject|terminate|require)|grounds for|non-?responsive|cure notice)\b`,
+    String.raw`\b(?:terminat\w*|liquidated damages|penalt(?:y|ies)|indemnif\w+|notariz\w+|notary)\b`,
+    String.raw`\bwithin (?:\d+|\w+ \(\d+\)) (?:minutes?|hours?|business days?|calendar days?|days?|weeks?|months?)\b`,
   ].join("|"),
   "gi",
 );
@@ -139,6 +143,29 @@ function statementsOn(flat: string): Span[] {
     }
   }
   return merged.filter((s) => s.end - s.start >= MIN_STATEMENT);
+}
+
+const STRONG =
+  /\[M\]|\b(?:must|shall|required|mandatory|disqualif\w*|(?:will )?not be accepted|will be rejected)\b/i;
+
+/** `count` items spread evenly over the list, in their original order. */
+function spread<T>(items: T[], count: number): T[] {
+  if (count >= items.length) return items;
+  return Array.from({ length: count }, (_, i) => items[Math.floor((i * items.length) / count)]);
+}
+
+/**
+ * Chooses which statements get reviewed when there are more than the review can hold. Taking the first
+ * ones would silently drop the back half of the document, where evaluation criteria and submission rules
+ * usually are. Statements with strong obligation words go first, and any cut is spread across all pages.
+ */
+export function pickForReview(uncovered: Statement[], cap: number): Statement[] {
+  if (uncovered.length <= cap) return uncovered;
+  const strong = uncovered.filter((s) => STRONG.test(s.text));
+  const weak = uncovered.filter((s) => !STRONG.test(s.text));
+  const chosen =
+    strong.length >= cap ? spread(strong, cap) : [...strong, ...spread(weak, cap - strong.length)];
+  return chosen.sort((a, b) => a.id - b.id);
 }
 
 export function findUncovered(pages: string[], cited: { page: number; quote: string }[]): CoverageResult {
