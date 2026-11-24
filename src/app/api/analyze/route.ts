@@ -1,4 +1,4 @@
-import { MAX_PAGES } from "@/lib/analyze";
+import { InputError, MAX_PAGES } from "@/lib/analyze";
 import { analyzeWithCache } from "@/lib/cache";
 import { QuotaError } from "@/lib/gemini";
 import { extractPagesFromPdf } from "@/lib/pdf-server";
@@ -69,7 +69,7 @@ export async function POST(req: Request) {
       const report = await analyzeWithCache(input);
       return Response.json(report);
     } catch (err) {
-      return Response.json({ error: errorMessage(err) }, { status: err instanceof QuotaError ? 429 : 500 });
+      return Response.json({ error: errorMessage(err) }, { status: statusFor(err) });
     }
   }
 
@@ -93,6 +93,12 @@ export async function POST(req: Request) {
   return new Response(stream, {
     headers: { "Content-Type": "application/x-ndjson; charset=utf-8", "Cache-Control": "no-store" },
   });
+}
+
+function statusFor(err: unknown): number {
+  if (err instanceof QuotaError) return 429;
+  if (err instanceof InputError) return 422;
+  return 500;
 }
 
 function errorMessage(err: unknown): string {

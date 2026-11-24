@@ -5,7 +5,8 @@ report links to the page it came from, and the quotes behind those facts are che
 
 Built for the idiaz.io internship challenge.
 
-- **Live app:** _added after deployment_
+- **Live app:** https://rfp-triage-agent.vercel.app
+- **Code:** https://github.com/hussainmunir1908/rfp-triage-agent
 - **Stack:** Next.js (App Router, TypeScript), Tailwind CSS, Google Gemini, deployed on Vercel
 
 ## What it does

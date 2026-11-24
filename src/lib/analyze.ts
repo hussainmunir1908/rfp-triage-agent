@@ -39,6 +39,9 @@ interface CachedExtraction {
 }
 const extractionCache = new Map<string, CachedExtraction>();
 
+/** The document itself cannot be analysed, as opposed to a failure on our side. */
+export class InputError extends Error {}
+
 export const MAX_PAGES = 300;
 export const MAX_CHARS = 1_500_000;
 /** Most uncovered statements handed to the judging call for review. */
@@ -76,12 +79,12 @@ export async function analyzeRfp(args: {
   const t0 = Date.now();
   const textLength = pages.reduce((n, p) => n + p.length, 0);
   if (pages.length === 0 || textLength < 200) {
-    throw new Error(
+    throw new InputError(
       "No readable text found in this PDF. It may be a scanned document; only text-based PDFs are supported.",
     );
   }
   if (pages.length > MAX_PAGES || textLength > MAX_CHARS) {
-    throw new Error(`Document is too large (limit ${MAX_PAGES} pages / ${MAX_CHARS} characters).`);
+    throw new InputError(`Document is too large (limit ${MAX_PAGES} pages / ${MAX_CHARS} characters).`);
   }
 
   const pagesText = pagesToPrompt(pages);
