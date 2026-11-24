@@ -1,7 +1,8 @@
-# RFP Triage Agent
+# Bidlings: RFP triage agent
 
 Upload a government RFP (PDF) and get back a bid / no-bid recommendation in about a minute. Every fact in the
-report links to the page it came from, and the quotes behind those facts are checked against the PDF by code.
+report links to the page it came from, the quotes behind those facts are checked against the PDF by code, and the
+call can be stress-tested in the browser before anyone commits a week to a proposal.
 
 Built for the idiaz.io internship challenge.
 
@@ -27,7 +28,8 @@ Ground rules the agent follows: only the document is used, missing information i
 ambiguous passages are flagged instead of quietly resolved, and work that clearly is not ours (such as
 construction) gets a fast no-bid.
 
-The same report is available as JSON from the UI (download or copy) and from the API.
+The same report is available as JSON from the UI (download or copy) and from the API, and as a CSV compliance
+matrix (one row per requirement, with page, quote, status and empty Owner and Notes columns for the bid team).
 
 ## Bonus features
 
@@ -66,13 +68,29 @@ browser and marked **Expired N days ago**, **Due today** or **In N days**. If ev
 passed, the report shows a clear "This RFP has already closed" banner, so nobody spends time on something
 that cannot be bid on. The fit assessment is still shown, because it remains useful for similar future work.
 
+### 3. Stress test
+
+A score is only as good as its assumptions, and a bid team always asks "what if we do hold that certification?"
+or "what if the agency waives that?". Because the decision rule is code (`src/lib/score.ts`), the report can be
+re-scored in the browser with one assumption changed, without another model call (`src/lib/whatif.ts`).
+
+- Set any mandatory qualification to met, confirm, at risk or blocked, waive a deal-breaker, or nudge a factor's
+  impact. The score, the BID / NO BID stamp and a plain-words account of the arithmetic update at once, and a
+  banner says whether the change flipped the call.
+- A **flip finder** tries every combination of up to four changes, smallest first, and lists the shortest sets
+  that reverse the current call: "Shortest way to a bid" for a no-bid, "What would sink this bid" for a bid. Each
+  has a "Try it" button. Work that is out of domain is locked: no assumption turns construction into a bid, and
+  the panel says so instead of pretending.
+- This turns the model's prose answer to "what would change the call" into something computed and testable.
+
 ## Interface
 
-The look follows idiaz.io: warm paper, one orange accent, flat bordered boxes and pixel art. The characters and
-scenery are drawn as text grids in `src/components/pixel/art.ts` and rendered as SVG, so they stay sharp at any
-size. While a PDF is processed, three critters work at three stations (read, check, judge), a tile per page lights
-up as the document is read, and a magnifier sweeps the tiles while quotes are checked. The report fills the screen
-with a small margin and adapts from phones to ultrawide displays.
+The look is its own: cool paper, deep navy ink, one arcade-yellow accent, Schibsted Grotesk for text, JetBrains
+Mono for detail and Jersey 10 for the pixel labels. The characters (Scribe the robot, Hoot the owl and Boo the ghost)
+and the night-street scenery are drawn as text grids in `src/components/pixel/art.ts` and rendered as SVG, so they
+stay sharp at any size. While a PDF is processed, the three bidlings work at three stations (read, check, judge), a
+tile per page lights up as the document is read, and a magnifier sweeps the tiles while quotes are checked. The report
+fills the screen with a small margin and adapts from phones to ultrawide displays.
 
 ## How it works
 
@@ -181,6 +199,7 @@ src/
     Landing.tsx            first screen: drop zone, scene, how it works
     Working.tsx            the loading view: three stations, page tiles, live log
     Report.tsx             the report sections
+    StressTest.tsx         what-if controls, live call and flip finder
     EvidenceViewer.tsx     PDF page with highlighted quote
     Chrome.tsx             header, ticker and footer
     pixel/                 pixel art as text grids, sprite renderer and the landscape
@@ -192,6 +211,8 @@ src/
     coverage.ts            finds obligation sentences nobody quoted
     dates.ts               date parsing, correction, superseded and expiry status
     score.ts               the decision rule
+    whatif.ts              re-scores a report under changed assumptions, finds the shortest flips
+    matrix.ts              CSV compliance matrix
     prompts.ts             prompts and the company profile
     types.ts               schemas and report types
     pdf-text.ts            joins pdf.js text items into page text
