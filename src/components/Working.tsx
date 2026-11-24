@@ -5,11 +5,11 @@ import {
   BLOCK,
   BOOK_OPEN,
   BOOK_SHUT,
-  CAT,
-  FOX,
-  FROG,
+  GHOST,
+  OWL,
+  ROBOT,
   GAVEL,
-  GROUND_TILE,
+  STREET_TILE,
   LENS,
   TICK,
   ZZZ,
@@ -23,7 +23,7 @@ export type StageKey = "read" | "extract" | "verify" | "judge" | "done";
 export const STAGE_ORDER: StageKey[] = ["read", "extract", "verify", "judge", "done"];
 
 const MAX_TILES = 150;
-const GRASS = GROUND_TILE.slice(0, 5);
+const PAVE = STREET_TILE.slice(0, 4);
 
 type StationState = "pending" | "active" | "done";
 
@@ -125,17 +125,17 @@ function Station({
       <div
         className="w-full"
         style={{
-          height: `calc(var(--s) * ${GRASS.length})`,
-          backgroundImage: tileBackground(GRASS),
-          backgroundSize: `calc(var(--s) * 16) calc(var(--s) * ${GRASS.length})`,
+          height: `calc(var(--s) * ${PAVE.length})`,
+          backgroundImage: tileBackground(PAVE),
+          backgroundSize: `calc(var(--s) * 16) calc(var(--s) * ${PAVE.length})`,
           backgroundRepeat: "repeat-x",
           imageRendering: "pixelated",
         }}
       />
 
       <p
-        className={`label mt-3 text-[11px] font-bold ${
-          active ? "text-orange" : state === "done" ? "text-[#3fb585]" : "text-paper/40"
+        className={`label mt-3 text-[17px] ${
+          active ? "text-accent" : state === "done" ? "text-mint" : "text-paper/40"
         }`}
       >
         {label}
@@ -182,7 +182,7 @@ function PageStrip({ stage, total, readPages }: { stage: StageKey; total: number
           } else if (stage === "verify") {
             cls = "tile-tick";
           } else {
-            cls = "bg-[#3fb585]";
+            cls = "bg-mint";
           }
           return <span key={`${stage}-${i}`} className={`${size} ${cls}`} style={{ ["--i" as string]: i }} />;
         })}
@@ -255,7 +255,7 @@ export function Working({
         <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
           <p className="label flex min-w-0 items-center gap-2 text-paper/80">
             <span
-              className={`inline-block h-[8px] w-[8px] shrink-0 bg-orange ${stage === "done" ? "" : "blink"}`}
+              className={`inline-block h-[8px] w-[8px] shrink-0 bg-accent ${stage === "done" ? "" : "blink"}`}
             />
             <span className="shrink-0">analyzing //</span>
             <span className="truncate text-paper">{fileName}</span>
@@ -265,21 +265,21 @@ export function Working({
 
         <div className="mt-6 grid grid-cols-3 gap-[clamp(6px,2vw,28px)]">
           <Station
-            art={FROG}
+            art={ROBOT}
             label="Read"
             note="pulls out facts, dates and must-haves"
             state={states[0]}
             prop="book"
           />
           <Station
-            art={FOX}
+            art={OWL}
             label="Check"
             note="looks every quote up in the PDF text"
             state={states[1]}
             prop="lens"
           />
           <Station
-            art={CAT}
+            art={GHOST}
             label="Judge"
             note="scores the fit and makes the call"
             state={states[2]}
@@ -306,12 +306,12 @@ export function Working({
           aria-valuemax={100}
         >
           {Array.from({ length: blocks }, (_, i) => (
-            <span key={i} className={`h-[10px] flex-1 ${i < lit ? "bg-orange" : "bg-night-line"}`} />
+            <span key={i} className={`h-[10px] flex-1 ${i < lit ? "bg-accent" : "bg-night-line"}`} />
           ))}
         </div>
 
         <p className="mt-4 min-h-[1.5em] font-mono text-[13px] leading-relaxed text-paper/85">
-          <span className="text-orange">&gt;</span> {log}
+          <span className="text-accent">&gt;</span> {log}
           {stage !== "done" ? (
             <span className="blink ml-1 inline-block h-[1em] w-[0.5em] translate-y-[2px] bg-paper/80" />
           ) : null}

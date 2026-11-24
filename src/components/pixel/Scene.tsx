@@ -1,10 +1,27 @@
 import type { CSSProperties } from "react";
-import { BUSH, CAT, CLOUD, FLOWER, FOX, FROG, GROUND_TILE, PINE, SUN, type Art } from "./art";
+import { GHOST, HALL, LAMP, MOON, OWL, ROBOT, SKYLINE, STREET_TILE, type Art } from "./art";
 import { Sprite, tileBackground } from "./Sprite";
 
-const GROUND_ROWS = GROUND_TILE.length;
-// The grass surface sits a couple of pixels below the top of the tile.
-const STAND = GROUND_ROWS - 2;
+const STREET_ROWS = STREET_TILE.length;
+// Feet rest on top of the curb, two rows into the tile.
+const STAND = STREET_ROWS - 2;
+
+/** [left in %, top in pixels of the grid] */
+const STARS: [number, number][] = [
+  [4, 5],
+  [11, 14],
+  [19, 3],
+  [27, 10],
+  [36, 4],
+  [44, 13],
+  [52, 6],
+  [61, 3],
+  [69, 12],
+  [78, 5],
+  [86, 14],
+  [93, 7],
+  [98, 2],
+];
 
 function Prop({
   art,
@@ -25,68 +42,75 @@ function Prop({
 }
 
 /**
- * The landscape from the landing page: sky, sun, clouds, trees and three critters standing on the
- * ground. It is drawn at any width, and the critters hop when `excited` is on.
+ * The night street from the landing page: stars, a moon, a skyline of lit windows, the records hall and
+ * three bidlings standing on the curb. It is drawn at any width; the bidlings hop when `excited` is on.
  */
 export function Scene({ excited = false }: { excited?: boolean }) {
   const hop = excited ? "hop" : "";
   return (
     <div
       aria-hidden
-      className="relative w-full overflow-hidden"
-      style={{ height: `calc(var(--s) * ${GROUND_ROWS + 25})` }}
+      className="relative w-full overflow-hidden bg-night"
+      style={{ height: `calc(var(--s) * ${STREET_ROWS + 32})` }}
     >
-      <div className="absolute" style={{ right: "7%", top: "calc(var(--s) * 3)" }}>
-        <Sprite art={SUN} />
+      {STARS.map(([left, top], i) => (
+        <span
+          key={left}
+          className={`blink absolute bg-paper/80 ${i % 3 === 0 ? "hidden sm:block" : ""}`}
+          style={{
+            left: `${left}%`,
+            top: `calc(var(--s) * ${top})`,
+            width: "calc(var(--s) * 0.5)",
+            height: "calc(var(--s) * 0.5)",
+            animationDuration: `${2.2 + (i % 4) * 0.7}s`,
+            animationDelay: `${-(i * 0.45)}s`,
+          }}
+        />
+      ))}
+
+      <div className="absolute" style={{ right: "9%", top: "calc(var(--s) * 4)" }}>
+        <Sprite art={MOON} />
       </div>
 
-      <div className="drift absolute" style={{ top: "calc(var(--s) * 4)", animationDelay: "-30s" }}>
-        <Sprite art={CLOUD} />
-      </div>
       <div
-        className="drift absolute hidden sm:block"
-        style={{ top: "calc(var(--s) * 11)", animationDelay: "-85s" }}
-      >
-        <Sprite art={CLOUD} style={{ opacity: 0.8 }} />
-      </div>
-      <div
-        className="drift absolute hidden lg:block"
-        style={{ top: "calc(var(--s) * 2)", animationDelay: "-60s" }}
-      >
-        <Sprite art={CLOUD} style={{ opacity: 0.9 }} />
-      </div>
+        className="absolute inset-x-0"
+        style={{
+          bottom: `calc(var(--s) * ${STAND})`,
+          height: `calc(var(--s) * ${SKYLINE.length})`,
+          backgroundImage: tileBackground(SKYLINE),
+          backgroundSize: `calc(var(--s) * 48) calc(var(--s) * ${SKYLINE.length})`,
+          backgroundRepeat: "repeat-x",
+          imageRendering: "pixelated",
+        }}
+      />
 
-      <Prop art={PINE} left="3%" />
-      <Prop art={BUSH} left="12%" className="hidden sm:block" />
-      <Prop art={PINE} left="20%" className="hidden md:block" />
-      <Prop art={FLOWER} left="29%" className="hidden md:block" />
+      <Prop art={HALL} left="5%" className="hidden md:block" />
+      <Prop art={LAMP} left="3%" />
+      <Prop art={LAMP} left="31%" className="hidden md:block" />
+      <Prop art={LAMP} left="68%" className="hidden md:block" />
+      <Prop art={LAMP} left="95%" />
 
       <div
         className="absolute left-1/2 flex -translate-x-1/2 items-end"
         style={{ bottom: `calc(var(--s) * ${STAND})`, gap: "calc(var(--s) * 3)" }}
       >
         <div className={hop} style={{ animationDelay: "0ms" }}>
-          <Sprite art={FROG} />
+          <Sprite art={ROBOT} />
         </div>
         <div className={hop} style={{ animationDelay: "120ms" }}>
-          <Sprite art={FOX} />
+          <Sprite art={OWL} />
         </div>
         <div className={hop} style={{ animationDelay: "240ms" }}>
-          <Sprite art={CAT} />
+          <Sprite art={GHOST} />
         </div>
       </div>
-
-      <Prop art={FLOWER} left="68%" className="hidden md:block" />
-      <Prop art={BUSH} left="75%" className="hidden sm:block" />
-      <Prop art={PINE} left="82%" className="hidden md:block" />
-      <Prop art={PINE} left="92%" />
 
       <div
         className="absolute inset-x-0 bottom-0"
         style={{
-          height: `calc(var(--s) * ${GROUND_ROWS})`,
-          backgroundImage: tileBackground(GROUND_TILE),
-          backgroundSize: `calc(var(--s) * 16) calc(var(--s) * ${GROUND_ROWS})`,
+          height: `calc(var(--s) * ${STREET_ROWS})`,
+          backgroundImage: tileBackground(STREET_TILE),
+          backgroundSize: `calc(var(--s) * 16) calc(var(--s) * ${STREET_ROWS})`,
           backgroundRepeat: "repeat-x",
           imageRendering: "pixelated",
         }}

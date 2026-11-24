@@ -114,7 +114,7 @@ export function EvidenceViewer({ pdf, pageCount, target, onClose }: Props) {
 
       <div className="max-h-[32vh] overflow-auto border-b border-line bg-card p-4">
         <p className="label text-ink-3">quoted from the document</p>
-        <blockquote className="mt-2 border-l-2 border-orange pl-3 font-mono text-[13px] leading-relaxed">
+        <blockquote className="mt-2 border-l-2 border-accent pl-3 font-mono text-[13px] leading-relaxed">
           {ev.quote || "No quote"}
         </blockquote>
         {!ev.verified ? (
@@ -158,7 +158,7 @@ export function EvidenceViewer({ pdf, pageCount, target, onClose }: Props) {
             {boxes.map((b, i) => (
               <span
                 key={i}
-                className="pointer-events-none absolute bg-orange/30 outline outline-1 outline-orange"
+                className="pointer-events-none absolute bg-accent/30 outline outline-1 outline-accent"
                 style={{ left: b.left - 1, top: b.top - 1, width: b.width + 2, height: b.height + 2 }}
               />
             ))}

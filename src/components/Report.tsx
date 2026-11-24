@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { deadlineStatus, formatDate } from "@/lib/dates";
+import { complianceMatrix } from "@/lib/matrix";
 import type {
   CheckStatus,
   DeadlineStatus,
@@ -10,9 +11,10 @@ import type {
   ReportDeadline,
   TriageReport,
 } from "@/lib/types";
-import { CAT, FOX, STAR, ZZZ } from "./pixel/art";
+import { GHOST, ROBOT, STAR, ZZZ } from "./pixel/art";
 import { Sprite } from "./pixel/Sprite";
-import { Badge, Card, EvidenceLink, Section } from "./ui";
+import { StressTest } from "./StressTest";
+import { Badge, Card, EvidenceLink, Meter, Section } from "./ui";
 
 const CATEGORY_LABELS: Record<string, string> = {
   certification: "Certifications",
@@ -64,21 +66,6 @@ function StatusBadge({ status, days }: { status: DeadlineStatus; days: number | 
   return <Badge tone={soon ? "amber" : "green"}>In {plural(days ?? 0, "day")}</Badge>;
 }
 
-/** Ten blocks, one per point of the fit score. */
-function Meter({ value, tone }: { value: number; tone: string }) {
-  return (
-    <div className="flex gap-[3px]" role="img" aria-label={`${value} out of 10`}>
-      {Array.from({ length: 10 }, (_, i) => (
-        <span
-          key={i}
-          className="h-[14px] w-[clamp(10px,1.6vw,18px)]"
-          style={{ background: i < value ? tone : "var(--night-line)" }}
-        />
-      ))}
-    </div>
-  );
-}
-
 /** Sticky strip of links to the report sections. It sits outside the content frame so it spans the screen. */
 export function ReportNav({ report }: { report: TriageReport }) {
   const nav: [string, string][] = [
@@ -91,8 +78,9 @@ export function ReportNav({ report }: { report: TriageReport }) {
       : []),
     ["score", "Fit score"],
     ["call", "The call"],
+    ["stress", "Stress test"],
     ...(report.ambiguities.length > 0 ? ([["ambiguous", "Ambiguous"]] as [string, string][]) : []),
-    ["json", "JSON"],
+    ["json", "Export"],
   ];
 
   return (
@@ -152,7 +140,7 @@ export function Report({ report }: { report: TriageReport }) {
   const v = report.verification;
   const c = report.coverage;
   const bid = report.decision === "BID";
-  const accent = bid ? "#3fb585" : "#ff6a5a";
+  const accent = bid ? "var(--mint)" : "var(--coral)";
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -166,16 +154,15 @@ export function Report({ report }: { report: TriageReport }) {
                 <p
                   className="mt-2 leading-none tracking-tight"
                   style={{
-                    fontFamily: "var(--font-silk)",
-                    fontWeight: 700,
-                    fontSize: "clamp(3.6rem,8vw,6.5rem)",
+                    fontFamily: "var(--f-pixel)",
+                    fontSize: "clamp(5rem,10vw,8.5rem)",
                     color: accent,
                   }}
                 >
                   {report.fit_score}
                   <span
                     className="ml-1 text-[0.32em] font-bold text-paper/40"
-                    style={{ fontFamily: "var(--font-space)" }}
+                    style={{ fontFamily: "var(--f-sans)" }}
                   >
                     /10
                   </span>
@@ -187,7 +174,7 @@ export function Report({ report }: { report: TriageReport }) {
             <div className="min-w-0 sm:pr-[calc(var(--s)*17)]">
               <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                 <span
-                  className="stamp label inline-block border-2 px-3 py-1.5 text-[clamp(1rem,2vw,1.5rem)] font-bold tracking-[0.18em]"
+                  className="stamp label inline-block border-2 px-3 py-1.5 text-[clamp(1.4rem,2.6vw,2.1rem)] tracking-[0.14em]"
                   style={{ color: accent, borderColor: accent }}
                 >
                   {bid ? "BID" : "NO BID"}
@@ -211,6 +198,12 @@ export function Report({ report }: { report: TriageReport }) {
               <p className="mt-4 text-[clamp(1rem,1.5vw,1.2rem)] leading-[1.6] text-paper/90">
                 {report.recommendation_summary}
               </p>
+              <a
+                href="#stress"
+                className="label mt-4 inline-block border-b-2 border-accent pb-0.5 text-accent hover:text-paper"
+              >
+                Stress-test this call {"->"}
+              </a>
               <p className="mt-4 font-mono text-xs leading-relaxed text-paper/50">
                 {report.file_name} &middot; {plural(report.page_count, "page")} &middot; read by{" "}
                 {report.model}
@@ -228,7 +221,7 @@ export function Report({ report }: { report: TriageReport }) {
                   <Sprite art={STAR} px="3px" />
                 </div>
                 <div className="hop">
-                  <Sprite art={FOX} />
+                  <Sprite art={ROBOT} />
                 </div>
               </>
             ) : (
@@ -237,7 +230,7 @@ export function Report({ report }: { report: TriageReport }) {
                   <Sprite art={ZZZ} px="3px" className="opacity-60" />
                 </div>
                 <div className="bob">
-                  <Sprite art={CAT} />
+                  <Sprite art={GHOST} />
                 </div>
               </>
             )}
@@ -453,7 +446,7 @@ export function Report({ report }: { report: TriageReport }) {
             {grouped.map(([category, items]) => (
               <Card key={category} className="mb-4 break-inside-avoid p-0 sm:p-0">
                 <div className="flex items-center justify-between gap-3 border-b border-line bg-paper-2 px-4 py-2 sm:px-5">
-                  <h3 className="label font-bold text-ink">{CATEGORY_LABELS[category] ?? category}</h3>
+                  <h3 className="label text-ink">{CATEGORY_LABELS[category] ?? category}</h3>
                   <span className="font-mono text-xs text-ink-3">{items.length}</span>
                 </div>
                 <ul>
@@ -522,14 +515,14 @@ export function Report({ report }: { report: TriageReport }) {
                   className="grid grid-cols-[auto_1fr] gap-x-4 border-b border-line px-4 py-3 text-sm sm:px-5"
                 >
                   <span
-                    className={`grid h-9 w-11 place-items-center border text-[13px] font-bold ${
+                    className={`grid h-9 w-11 place-items-center border text-[19px] ${
                       f.impact > 0
                         ? "border-green/30 bg-green-wash text-green"
                         : f.impact < 0
                           ? "border-red/30 bg-red-wash text-red"
                           : "border-line-2 bg-paper-2 text-ink-2"
                     }`}
-                    style={{ fontFamily: "var(--font-silk)" }}
+                    style={{ fontFamily: "var(--f-pixel)" }}
                   >
                     {f.impact > 0 ? `+${f.impact}` : f.impact}
                   </span>
@@ -561,8 +554,8 @@ export function Report({ report }: { report: TriageReport }) {
                 {report.reasons.map((r, i) => (
                   <li key={i} className="flex gap-4 text-sm">
                     <span
-                      className="grid h-8 w-8 shrink-0 place-items-center bg-ink text-[13px] text-paper"
-                      style={{ fontFamily: "var(--font-silk)" }}
+                      className="grid h-8 w-8 shrink-0 place-items-center bg-ink text-[19px] text-paper"
+                      style={{ fontFamily: "var(--f-pixel)" }}
                     >
                       {i + 1}
                     </span>
@@ -577,7 +570,7 @@ export function Report({ report }: { report: TriageReport }) {
 
             {report.deal_breakers.length > 0 ? (
               <div className="rounded-[6px] border border-red/30 bg-red-wash p-4 sm:p-5">
-                <h3 className="label font-bold text-red">Deal-breakers</h3>
+                <h3 className="label text-red">Deal-breakers</h3>
                 <ul className="mt-3 space-y-2.5 text-sm leading-relaxed text-red">
                   {report.deal_breakers.map((d, i) => (
                     <li key={i} className="border-l-2 border-red/50 pl-3">
@@ -592,14 +585,14 @@ export function Report({ report }: { report: TriageReport }) {
 
           <div className="grid min-w-0 gap-4 xl:col-span-6 xl:grid-rows-2">
             <Card>
-              <h3 className="label font-bold">What would change the call</h3>
+              <h3 className="label">What would change the call</h3>
               {report.would_change_mind.length === 0 ? (
                 <p className="mt-3 text-sm text-ink-3">Nothing identified.</p>
               ) : (
                 <ul className="mt-3 space-y-2 text-sm leading-relaxed text-ink-2">
                   {report.would_change_mind.map((t, i) => (
                     <li key={i} className="flex gap-2.5">
-                      <span className="mt-[7px] h-[6px] w-[6px] shrink-0 bg-orange" />
+                      <span className="mt-[7px] h-[6px] w-[6px] shrink-0 bg-accent" />
                       <span>{t}</span>
                     </li>
                   ))}
@@ -607,14 +600,14 @@ export function Report({ report }: { report: TriageReport }) {
               )}
             </Card>
             <Card>
-              <h3 className="label font-bold">Questions to ask the agency</h3>
+              <h3 className="label">Questions to ask the agency</h3>
               {report.open_questions.length === 0 ? (
                 <p className="mt-3 text-sm text-ink-3">None.</p>
               ) : (
                 <ul className="mt-3 space-y-2 text-sm leading-relaxed text-ink-2">
                   {report.open_questions.map((t, i) => (
                     <li key={i} className="flex gap-2.5">
-                      <span className="mt-[7px] h-[6px] w-[6px] shrink-0 bg-orange" />
+                      <span className="mt-[7px] h-[6px] w-[6px] shrink-0 bg-accent" />
                       <span>{t}</span>
                     </li>
                   ))}
@@ -624,6 +617,8 @@ export function Report({ report }: { report: TriageReport }) {
           </div>
         </div>
       </Section>
+
+      <StressTest report={report} />
 
       {/* Ambiguities ---------------------------------------------------- */}
       {report.ambiguities.length > 0 ? (
@@ -702,15 +697,18 @@ function JsonExport({ report }: { report: TriageReport }) {
   const [copied, setCopied] = useState(false);
   const json = useMemo(() => JSON.stringify(report, null, 2), [report]);
 
-  const download = () => {
-    const blob = new Blob([json], { type: "application/json" });
+  const save = (content: string, type: string, suffix: string) => {
+    const blob = new Blob([content], { type });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${report.file_name.replace(/\.pdf$/i, "")}-triage.json`;
+    a.download = `${report.file_name.replace(/.pdf$/i, "")}-${suffix}`;
     a.click();
     URL.revokeObjectURL(url);
   };
+  const download = () => save(json, "application/json", "triage.json");
+  const downloadMatrix = () =>
+    save(complianceMatrix(report), "text/csv;charset=utf-8", "compliance-matrix.csv");
 
   const copy = async () => {
     try {
@@ -723,15 +721,22 @@ function JsonExport({ report }: { report: TriageReport }) {
   };
 
   return (
-    <Section id="json" title="JSON" hint="the same report for other systems">
+    <Section id="json" title="Export" hint="JSON for other systems, a CSV matrix for the bid team">
       <Card>
         <div className="flex flex-wrap gap-2">
           <button
             type="button"
             onClick={download}
-            className="rounded-[6px] bg-orange px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-[#ff7e57]"
+            className="rounded-[6px] bg-accent px-4 py-2 text-sm font-semibold text-ink transition-colors hover:bg-accent-hi"
           >
             Download JSON
+          </button>
+          <button
+            type="button"
+            onClick={downloadMatrix}
+            className="rounded-[6px] border-2 border-ink px-4 py-2 text-sm font-semibold transition-colors hover:bg-ink hover:text-paper"
+          >
+            Download compliance matrix (CSV)
           </button>
           <button
             type="button"

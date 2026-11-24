@@ -7,12 +7,12 @@ import type { CheckStatus, Extraction } from "./types";
 
 export const BASE_SCORE = 5;
 export const BID_THRESHOLD = 6;
-const DEAL_BREAKER_CAP = 3;
-const OUT_OF_DOMAIN_CAP = 2;
+export const DEAL_BREAKER_CAP = 3;
+export const OUT_OF_DOMAIN_CAP = 2;
 /** The profile cannot confirm a mandatory qualification, so a perfect score would overstate what is known. */
-const ONE_UNKNOWN_CAP = 8;
-const MANY_UNKNOWN_CAP = 7;
-const MANY_UNKNOWN = 3;
+export const ONE_UNKNOWN_CAP = 8;
+export const MANY_UNKNOWN_CAP = 7;
+export const MANY_UNKNOWN = 3;
 
 const OUT_OF_DOMAIN: Extraction["work_category"][] = [
   "construction_or_facilities",

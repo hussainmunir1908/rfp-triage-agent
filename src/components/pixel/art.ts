@@ -4,85 +4,94 @@
  */
 
 export const PALETTE: Record<string, string> = {
-  k: "#191922", // ink
+  k: "#0f1f2e", // ink
   w: "#ffffff",
-  // fox
-  o: "#ff6a3d",
-  O: "#d94a1e",
-  c: "#ffe3c2",
-  // frog
-  g: "#46a06c",
-  G: "#2f7a52",
-  l: "#9ad8b3",
-  // cat
-  b: "#7488c4",
-  B: "#4d5c96",
-  d: "#c9d3f2",
-  // shared warm tones
-  y: "#ffc933",
-  Y: "#f0a01c",
-  p: "#f4a3b8",
-  r: "#e5483c",
-  // landscape
-  s: "#e4e3db", // cloud shade
-  t: "#7a5340", // trunk
+  // accent
+  y: "#ffd23f",
+  Y: "#d99c00",
+  // mint and coral
+  m: "#55e0b2",
+  M: "#2fae86",
+  c: "#ff7b6b",
+  C: "#d4503f",
+  p: "#ff9bb0",
+  // robot
+  h: "#9db3c4",
+  H: "#5f7a8f",
+  // owl
+  a: "#c98f5a",
+  A: "#8f5f36",
+  f: "#f6dfb8",
+  // ghost
+  s: "#b9c2e0",
+  // lens glass and wood
+  d: "#c9e3f5",
+  b: "#6fa8d6",
+  t: "#7a5340",
   T: "#573a2d",
-  n: "#3b8a66", // pine
-  N: "#2c6b50",
-  m: "#69b890",
-  e: "#4a3b47", // soil
-  E: "#6b5365",
-  F: "#c9748f",
-  u: "#2d2431",
   // paper props
-  q: "#f6f5f1",
-  x: "#cfcdc3",
-  z: "#9b9a92",
+  q: "#eff2ec",
+  x: "#c3cbbd",
+  z: "#8b97a0",
+  // night city
+  l: "#fff2c4", // moon
+  L: "#e2cd86",
+  n: "#1a3350", // wall
+  N: "#102640", // wall in shade
+  g: "#2b4a6b", // unlit window
+  "1": "#162538", // asphalt
+  "2": "#1e3249",
 };
 
 export type Art = readonly string[];
 
-/* Characters, 12 wide ------------------------------------------------ */
+/* The bidlings, 12 wide ------------------------------------------------ */
 
-export const FROG: Art = [
-  ".gwwg..gwwg.",
-  ".gwkg..gkwg.",
-  ".gggggggggg.",
-  "gggggggggggg",
-  "gpgggggggpgg",
-  "gggkkkkkkggg",
-  "gglllllllgg.",
-  ".gllllllllg.",
-  ".gggggggggg.",
-  ".GG......GG.",
+/** Scribe reads the document. */
+export const ROBOT: Art = [
+  "......y.....",
+  "......H.....",
+  ".hhhhhhhhhh.",
+  "hhhhhhhhhhhh",
+  "hkkkkkkkkkkh",
+  "hkmmkkkkmmkh",
+  "hkmmkkkkmmkh",
+  "hkkkkkkkkkkh",
+  "hhhhhhhhhhhh",
+  "hhHkHkHkHkHh",
+  ".hhhhhhhhhh.",
+  "..HH....HH..",
 ];
 
-export const FOX: Art = [
-  "oo........oo",
-  "ooo......ooo",
-  "oOoo....ooOo",
-  "oooooooooooo",
-  "oowkoooowkoo",
-  "oowwoooowwoo",
-  "oooooooooooo",
-  "occoookoocco",
-  ".occccccccc.",
-  "..cccccccc..",
-  "..oo....oo..",
+/** Hoot checks every quote against the page. */
+export const OWL: Art = [
+  "a..........a",
+  "aa........aa",
+  "aAaaaaaaaaAa",
+  "aaaaaaaaaaaa",
+  "afffaaaafffa",
+  "affkfaaffkfa",
+  "afffaaaafffa",
+  "aaaaayyaaaaa",
+  "aAaaaYYaaaAa",
+  ".aaffffffaa.",
+  "..yy....yy..",
 ];
 
-export const CAT: Art = [
-  "b..........b",
-  "bb........bb",
-  "bBbb....bbBb",
-  "bbbbbbbbbbbb",
-  "bbwkbbbbwkbb",
-  "bbwwbbbbwwbb",
-  "bbbbbppbbbbb",
-  "dbbbbkkbbbbd",
-  ".bbbbbbbbbb.",
-  "..bbddddbb..",
-  "..BB....BB..",
+/** Boo makes the call. A no-bid is a ghosting. */
+export const GHOST: Art = [
+  "....wwww....",
+  "..wwwwwwww..",
+  ".wwwwwwwwww.",
+  "swwwwwwwwwws",
+  "swkkwwwwkkws",
+  "swkkwwwwkkws",
+  "swwwwwwwwwws",
+  "swppwwwwppws",
+  "swwwwkkwwwws",
+  "swwwwwwwwwws",
+  "swwwwwwwwwws",
+  "ww.ww..ww.ww",
 ];
 
 /* Small props -------------------------------------------------------- */
@@ -113,7 +122,7 @@ export const BOOK_SHUT: Art = [
   ".kkkkkkkkkk.",
   "kqqqqqqqqqqk",
   "kkkkkkkkkkkk",
-  "kooooooooook",
+  "kyyyyyyyyyyk",
   "kkkkkkkkkkkk",
 ];
 
@@ -143,78 +152,97 @@ export const GAVEL: Art = [
 
 export const BLOCK: Art = ["kkkkkkkk", "kttttttk", "kttttTTk", "kTTTTTTk", "kkkkkkkk"];
 
-export const TICK: Art = ["......gg", ".....ggg", "gg..ggg.", "ggggggg.", ".ggggg..", "..ggg..."];
+export const TICK: Art = ["......mm", ".....mmm", "mm..mmm.", "mmmmmmm.", ".mmmmm..", "..mmm..."];
 
 export const STAR: Art = ["..y..", "..y..", "yyyyy", "..y..", "..y.."];
 
-export const BANG: Art = ["rr", "rr", "rr", "rr", "..", "rr"];
-
 export const ZZZ: Art = ["zzzz.....", "...z.zzz.", "..z....z.", ".z....z..", "zzzz.zzz."];
 
-/* Landscape --------------------------------------------------------- */
+/* Night city --------------------------------------------------------- */
 
-export const PINE: Art = [
-  ".....n.....",
-  "....nnn....",
-  "....nNn....",
-  "...nnnnn...",
-  "..nnnnNNn..",
-  "...nnnnnn..",
-  "..nnnnnnNn.",
-  ".nnnnnnnnNN",
-  "..nnnnnnNn.",
-  ".nnnmmnnnNN",
-  "nnnnnnnnnnN",
-  ".....tt....",
-  ".....tT....",
-  ".....tT....",
+/** A filled disc with a few craters. */
+function disc(r: number): Art {
+  const size = r * 2 + 1;
+  const craters = new Set([`${r + 1},${r - 1}`, `${r + 2},${r}`, `${r - 2},${r + 2}`]);
+  return Array.from({ length: size }, (_, y) =>
+    Array.from({ length: size }, (_, x) => {
+      const inside = (x - r) ** 2 + (y - r) ** 2 <= r * r + 1;
+      if (!inside) return ".";
+      return craters.has(`${x},${y}`) ? "L" : "l";
+    }).join(""),
+  );
+}
+
+export const MOON: Art = disc(5);
+
+/** The records hall: a dome, a flag and a row of columns. */
+export const HALL: Art = [
+  "........zcc......",
+  "........zcc......",
+  "........z........",
+  ".......hhh.......",
+  "......hhhhh......",
+  ".....hhhhhhh.....",
+  "....xxxxxxxxx....",
+  "..xxxxxxxxxxxxx..",
+  "..xnxnxnxnxnxnx..",
+  "..xnxnxnxnxnxnx..",
+  "..xnxnxnxnxnxnx..",
+  "..xnxnxnxnxnxnx..",
+  "..xxxxxxxxxxxxx..",
+  ".xxxxxxxxxxxxxxx.",
+  "xxxxxxxxxxxxxxxxx",
 ];
 
-export const BUSH: Art = [
-  "..nnnn..",
-  ".nnmmnnN",
-  "nnmnnnnN",
-  "nnnnnnNN",
-  "nnnnnNNN",
-  ".NNNNNN.",
-  "...tT...",
-  "...tT...",
-];
+/** A street lamp. */
+export const LAMP: Art = [".yyy.", ".yyy.", "..z..", "..z..", "..z..", "..z..", "..z..", "..z..", ".zzz."];
 
-export const FLOWER: Art = ["..p..", ".pyp.", "..p..", "..g..", "..g..", ".gg.."];
+/** Rows of a flat-roofed block, with some windows lit. Deterministic, so server and client agree. */
+function block(width: number, height: number, seed: number): string[] {
+  return Array.from({ length: height }, (_, y) =>
+    Array.from({ length: width }, (_, x) => {
+      if (y === 0) return x === 0 || x === width - 1 ? "." : "N";
+      const window = x % 2 === 1 && y % 2 === 0 && x < width - 1 && y > 1 && y < height - 1;
+      if (window) return (x * 7 + y * 13 + seed) % 5 === 0 ? "y" : "g";
+      return x === width - 1 ? "N" : "n";
+    }).join(""),
+  );
+}
 
-export const SUN: Art = [
-  "...y..y..y...",
-  ".............",
-  "..YYYYYYYY...",
-  ".yYyyyyyyYy..",
-  "y.YyyYYyyY.y.",
-  ".YyyYyyYyyY..",
-  "y.YyyYYyyY.y.",
-  ".yYyyyyyyYy..",
-  "..YYYYYYYY...",
-  ".............",
-  "...y..y..y...",
-];
+/** One repeating strip of skyline, 48 wide. */
+function skyline(): Art {
+  const W = 48;
+  const H = 24;
+  const rows = Array.from({ length: H }, () => Array<string>(W).fill("."));
+  const buildings: [number, number, number][] = [
+    [0, 7, 14],
+    [7, 9, 20],
+    [16, 6, 11],
+    [22, 8, 17],
+    [30, 7, 23],
+    [37, 6, 13],
+    [43, 5, 18],
+  ];
+  buildings.forEach(([x0, w, h], i) => {
+    block(w, h, i * 3 + 1).forEach((line, dy) => {
+      [...line].forEach((ch, dx) => {
+        if (ch !== ".") rows[H - h + dy][x0 + dx] = ch;
+      });
+    });
+  });
+  return rows.map((r) => r.join(""));
+}
 
-export const CLOUD: Art = [
-  ".......wwww.......",
-  "....wwwwwwwwww....",
-  "..wwwwwwwwwwwwww..",
-  "wwwwwwwwwwwwwwwwww",
-  "wwwwwwwwwwwwwwwwww",
-  ".ssssssssssssssss.",
-];
+export const SKYLINE: Art = skyline();
 
-/** One repeating tile: grass blades on top, then soil with a few flecks. 16 wide. */
-export const GROUND_TILE: Art = [
-  "..m...m..m...m..",
-  "gggggggggggggggg",
-  "gnggggnggggnggng",
-  "eeeeeeeeeeeeeeee",
-  "eeFeeeeEeeeeeFee",
-  "eeeeeEeeeeeeeeee",
-  "eEeeeeeeFeeEeeee",
-  "eeeeFeeeeeeeeEee",
-  "uuuuuuuuuuuuuuuu",
+/** One repeating tile of street: a curb, asphalt and a dashed lane line. 16 wide. */
+export const STREET_TILE: Art = [
+  "hhhhhhhhhhhhhhhh",
+  "HHHHHHHHHHHHHHHH",
+  "1111111111111111",
+  "1211111111111211",
+  "1111111111111111",
+  "yyyy1111yyyy1111",
+  "1111111111111111",
+  "kkkkkkkkkkkkkkkk",
 ];

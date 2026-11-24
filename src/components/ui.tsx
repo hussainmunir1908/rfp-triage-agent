@@ -49,10 +49,10 @@ const TONES: Record<Tone, string> = {
 
 const DARK_TONES: Record<Tone, string> = {
   slate: "border-paper/20 bg-paper/10 text-paper/75",
-  green: "border-[#3fb585]/50 bg-[#3fb585]/15 text-[#7fe0b8]",
-  red: "border-[#ff6a5a]/50 bg-[#ff6a5a]/15 text-[#ff9d92]",
-  amber: "border-[#ffc933]/50 bg-[#ffc933]/15 text-[#ffd96b]",
-  blue: "border-[#7aa7e0]/50 bg-[#7aa7e0]/15 text-[#a9c8ee]",
+  green: "border-mint/50 bg-mint/15 text-mint",
+  red: "border-coral/50 bg-coral/15 text-coral",
+  amber: "border-accent/50 bg-accent/15 text-accent",
+  blue: "border-ice/50 bg-ice/15 text-ice",
 };
 
 export function Badge({
@@ -72,6 +72,21 @@ export function Badge({
     >
       {children}
     </span>
+  );
+}
+
+/** Ten blocks, one per point of the fit score. */
+export function Meter({ value, tone }: { value: number; tone: string }) {
+  return (
+    <div className="flex gap-[3px]" role="img" aria-label={`${value} out of 10`}>
+      {Array.from({ length: 10 }, (_, i) => (
+        <span
+          key={i}
+          className="h-[14px] w-[clamp(10px,1.6vw,18px)]"
+          style={{ background: i < value ? tone : "var(--night-line)" }}
+        />
+      ))}
+    </div>
   );
 }
 
