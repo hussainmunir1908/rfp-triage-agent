@@ -50,7 +50,7 @@ team spends a week of proposal writing. So the agent does not ask to be trusted;
   numbers; if "about 72%" sits next to a table that adds up to 79%, the report flags the contradiction.
 - Recall is checked as well as accuracy (`src/lib/coverage.ts`). Code finds every sentence that sounds like an
   obligation (must, shall, required, [M], numbered requirement ids, "the Contractor will ...") and lists the ones no
-  extracted item quotes. Those go to a second model look that can only classify them; it cannot invent a quote.
+  extracted item quotes. Those go to the judging call, which can only classify them; it cannot invent a quote.
   The report states how many obligation statements were accounted for.
 - In the UI, every item has a small page badge. Clicking it opens the **original PDF page** with the quoted
   passage outlined, so a reviewer can confirm any claim in a couple of seconds.
@@ -74,8 +74,8 @@ PDF file
   v
 pages[] -------------- POST /api/analyze ----> 1. Extract    Gemini, JSON schema, quotes + pages
                                                 2. Verify     code checks quotes, pages, dates, figures
-progress events <------ streamed NDJSON ------     + Coverage  code finds obligations nobody quoted, Gemini classifies them
-report + PDF viewer                             3. Judge      Gemini checks eligibility and scores factors
+progress events <------ streamed NDJSON ------     + Coverage  code finds obligations nobody quoted
+report + PDF viewer                             3. Judge      Gemini classifies those, checks eligibility, scores factors
                                                 4. Decide     code turns factor impacts into score + call
 ```
 
@@ -103,7 +103,7 @@ Design decisions:
 
 The free Gemini tier allows only a small number of requests per day for each model (about 20 at the time of
 writing), and individual models are sometimes overloaded. The agent therefore uses **two model calls per RFP**
-(three when the coverage check finds obligations the first reading did not quote) and keeps a pool of models in
+(one to extract, one to review and judge) and keeps a pool of models in
 `src/lib/gemini.ts`. When a model reports an exhausted daily quota it is skipped,
 and the next one is used. Overloaded models are retried in short sweeps. Repeating the same document is served
 from a small in-memory cache and costs no request. If every model is exhausted the UI says so plainly.
@@ -189,7 +189,7 @@ src/
 ## Limits
 
 - Text-based PDFs only. Scanned documents need OCR, which is out of scope.
-- The coverage check sends at most 150 uncovered statements to the second look. A long document full of boilerplate
+- The coverage check hands at most 120 uncovered statements to the judging call. A long document full of boilerplate
   can exceed that; the report then says how many statements were not reviewed.
 - The company profile is fixed in `src/lib/prompts.ts`. Set-asides are treated as unknown unless the document
   says otherwise.

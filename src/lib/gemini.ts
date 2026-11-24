@@ -90,6 +90,8 @@ export async function generateJson<T>(opts: {
   prompt: string;
   schema: z.ZodType<T>;
   maxOutputTokens?: number;
+  /** Overrides the default request timeout for calls that write a long answer. */
+  timeoutMs?: number;
 }): Promise<GenerateResult<T>> {
   const ai = getClient();
   const responseJsonSchema = jsonSchemaFor(opts.schema);
@@ -119,6 +121,7 @@ export async function generateJson<T>(opts: {
               maxOutputTokens: opts.maxOutputTokens ?? 32768,
               responseMimeType: "application/json",
               responseJsonSchema,
+              ...(opts.timeoutMs ? { httpOptions: { timeout: opts.timeoutMs } } : {}),
               ...(thinkingConfig ? { thinkingConfig } : {}),
             },
           });

@@ -3,14 +3,13 @@ import { findUncovered } from "./coverage";
 import { dateTextInQuote, deadlineStatus, markSuperseded, resolveDate } from "./dates";
 import { checkFigureClaims, unsupportedFigures } from "./figures";
 import { generateJson } from "./gemini";
-import { EXTRACTION_SYSTEM, JUDGE_SYSTEM, SWEEP_SYSTEM, extractionPrompt, sweepPrompt } from "./prompts";
+import { EXTRACTION_SYSTEM, JUDGE_SYSTEM, extractionPrompt, judgePrompt } from "./prompts";
 import { clamp, decide } from "./score";
 import { buildPageIndex, checkQuote } from "./verify";
 import {
   NOT_STATED,
   extractionSchema,
   judgementSchema,
-  sweepSchema,
   type Evidence,
   type EvidenceRef,
   type Extraction,
@@ -20,7 +19,6 @@ import {
   type ReportQualification,
   type ReportReason,
   type ReportRequirement,
-  type Sweep,
   type TriageReport,
   type VerificationStats,
 } from "./types";
@@ -32,20 +30,21 @@ export function documentKey(pages: string[]): string {
 }
 
 /**
- * The extraction (and the coverage sweep that follows it) is the expensive part. If a later step fails,
- * for example the model is briefly overloaded, a retry reuses it instead of spending the quota again.
+ * The extraction is the expensive part. If the judging step fails, for example because the model is
+ * briefly overloaded, a retry reuses it instead of spending the quota again.
  */
 interface CachedExtraction {
   data: Extraction;
   model: string;
-  sweep?: { reviewed: number[]; items: Sweep["items"] };
 }
 const extractionCache = new Map<string, CachedExtraction>();
 
 export const MAX_PAGES = 300;
 export const MAX_CHARS = 1_500_000;
-/** Most uncovered statements sent to the coverage sweep in one call. */
-export const MAX_SWEEP = 150;
+/** Most uncovered statements handed to the judging call for review. */
+export const MAX_SWEEP = 120;
+/** The judging call also writes the statement reviews, so it gets more time than the default. */
+const JUDGE_TIMEOUT_MS = 120_000;
 
 type Progress = (stage: string, message: string) => void;
 
@@ -206,63 +205,13 @@ export async function analyzeRfp(args: {
   const { statements, uncovered } = findUncovered(pages, cited);
   const batch = uncovered.slice(0, MAX_SWEEP);
 
-  if (batch.length > 0 && !extraction.sweep) {
-    progress("verify", `Checking ${batch.length} statements the first pass may have missed...`);
-    try {
-      const swept = await generateJson({
-        system: SWEEP_SYSTEM,
-        prompt: sweepPrompt(
-          batch,
-          requirements.map((r) => r.text),
-        ),
-        schema: sweepSchema,
-        maxOutputTokens: 16384,
-      });
-      const wanted = new Set(batch.map((s) => s.id));
-      extraction.sweep = {
-        reviewed: [...new Set(swept.data.items.map((i) => i.id))].filter((id) => wanted.has(id)),
-        items: swept.data.items,
-      };
-    } catch (err) {
-      // The report is still useful without the sweep; the coverage numbers will say it did not run.
-      console.warn(
-        `[analyze] coverage sweep skipped: ${String((err as Error)?.message ?? err).slice(0, 160)}`,
-      );
-    }
-  }
-
-  let added = 0;
-  const sweep = extraction.sweep;
-  if (sweep) {
-    const known = new Set(requirements.map((r) => r.text.toLowerCase()));
-    for (const item of sweep.items) {
-      const statement = batch.find((s) => s.id === item.id);
-      const text = item.text.trim();
-      if (!statement || !item.is_requirement || !text || known.has(text.toLowerCase())) continue;
-      known.add(text.toLowerCase());
-      // The quote is the statement itself, chosen by code, so it is found by construction.
-      requirements.push({
-        id: `r${requirements.length + 1}`,
-        category: item.category,
-        text,
-        mandatory: item.mandatory,
-        evidence: withCaution(checkQuote(index, statement.page, statement.text), text),
-        source: "sweep",
-      });
-      added++;
-    }
-  }
-  const reviewed = sweep?.reviewed.length ?? 0;
-  const coverage = {
-    statements: statements.length,
-    matched: statements.length - uncovered.length,
-    added,
-    set_aside: Math.max(0, reviewed - added),
-    unreviewed: uncovered.length - reviewed,
-  };
-
-  /* 3. Judge ------------------------------------------------------ */
-  progress("judge", "Scoring fit against the idiaz.io profile...");
+  /* 3. Judge, which also reviews the uncovered statements ------------- */
+  progress(
+    "judge",
+    batch.length > 0
+      ? `Scoring fit and reviewing ${batch.length} statements the first pass may have missed...`
+      : "Scoring fit against the idiaz.io profile...",
+  );
   const judgeInput = {
     page_count: pages.length,
     work_category: ex.work_category,
@@ -293,11 +242,46 @@ export async function analyzeRfp(args: {
 
   const judged = await generateJson({
     system: JUDGE_SYSTEM,
-    prompt: `Verified extraction:\n${JSON.stringify(judgeInput, null, 2)}`,
+    prompt: judgePrompt(JSON.stringify(judgeInput, null, 2), batch),
     schema: judgementSchema,
-    maxOutputTokens: 16384,
+    maxOutputTokens: 32768,
+    timeoutMs: JUDGE_TIMEOUT_MS,
   });
   const j = judged.data;
+
+  /* 3b. Statements the judge accepted become requirements -------------- */
+  const wanted = new Map(batch.map((s) => [s.id, s]));
+  const reviewedIds = new Set<number>();
+  const statementAlias = new Map<string, string>(); // "s12" -> "r57"
+  const known = new Set(requirements.map((r) => r.text.toLowerCase()));
+  let added = 0;
+  for (const item of j.statement_reviews) {
+    const statement = wanted.get(item.id);
+    if (!statement || reviewedIds.has(item.id)) continue;
+    reviewedIds.add(item.id);
+    const text = item.text.trim();
+    if (!item.is_requirement || !text || known.has(text.toLowerCase())) continue;
+    known.add(text.toLowerCase());
+    const id = `r${requirements.length + 1}`;
+    statementAlias.set(`s${item.id}`, id);
+    // The quote is the statement itself, chosen by code, so it is found by construction.
+    requirements.push({
+      id,
+      category: item.category,
+      text,
+      mandatory: item.mandatory,
+      evidence: withCaution(checkQuote(index, statement.page, statement.text), text),
+      source: "sweep",
+    });
+    added++;
+  }
+  const coverage = {
+    statements: statements.length,
+    matched: statements.length - uncovered.length,
+    added,
+    set_aside: Math.max(0, reviewedIds.size - added),
+    unreviewed: uncovered.length - reviewedIds.size,
+  };
   console.info(
     `[analyze] ${fileName}: extract ${extractMs}ms, total ${Date.now() - t0}ms, model ${judged.model}, ` +
       `coverage ${coverage.matched}/${coverage.statements} (+${coverage.added})`,
@@ -313,8 +297,9 @@ export async function analyzeRfp(args: {
     if (a) return `Ambiguity: ${a.issue.length > 50 ? `${a.issue.slice(0, 47)}...` : a.issue}`;
     return null;
   };
+  const resolveId = (id: string): string => statementAlias.get(id) ?? id;
   const refs = (ids: string[]): EvidenceRef[] =>
-    [...new Set(ids)].flatMap((id) => {
+    [...new Set(ids.map(resolveId))].flatMap((id) => {
       const label = labelFor(id);
       return label ? [{ id, label }] : [];
     });
@@ -332,7 +317,7 @@ export async function analyzeRfp(args: {
 
   const seen = new Set<string>();
   const qualificationChecks: ReportQualification[] = j.qualification_checks.flatMap((c) => {
-    const req = requirements.find((r) => r.id === c.requirement_id);
+    const req = requirements.find((r) => r.id === resolveId(c.requirement_id));
     if (!req || seen.has(req.id)) return [];
     seen.add(req.id);
     return [

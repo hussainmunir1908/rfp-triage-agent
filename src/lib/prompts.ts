@@ -58,24 +58,12 @@ export function extractionPrompt(pagesText: string, pageCount: number): string {
 ${pagesText}`;
 }
 
-export const SWEEP_SYSTEM = `You review sentences taken verbatim from an RFP that a first reading may have missed.
-Each statement has an id and a page. Decide for each one whether it is a real requirement or obligation on the
-bidder or the solution, and classify it. Use only the text of the statement.
-
-- is_requirement false for: definitions, headings, instructions to the agency's own staff, descriptions of the
-  process, background, boilerplate, forms to fill in, cross-references, and anything that only repeats a
-  requirement already captured (the list of captured requirements is supplied).
-- is_requirement true for anything the bidder must do, hold, deliver, accept or risk.
-- text: one clear sentence in your own words, keeping every figure exactly.
-- mandatory: true for must / shall / required / [M] / will be rejected; false for should / desired / [D].
-Return one entry for every id you were given.`;
-
-export function sweepPrompt(statements: Statement[], captured: string[]): string {
-  return `Requirements already captured (do not repeat these):
-${captured.map((c) => `- ${c}`).join("\n") || "(none)"}
+export function judgePrompt(extractionJson: string, statements: Statement[]): string {
+  return `Verified extraction:
+${extractionJson}
 
 Statements to review:
-${statements.map((s) => `[${s.id}] (page ${s.page}) ${s.text}`).join("\n")}`;
+${statements.map((s) => `[s${s.id}] (page ${s.page}) ${s.text}`).join("\n") || "(none)"}`;
 }
 
 export const JUDGE_SYSTEM = `You decide whether idiaz.io should bid on an RFP, using ONLY the verified extraction supplied.
@@ -84,7 +72,21 @@ You never read the original document, so you must not invent facts.
 Company profile:
 ${COMPANY_PROFILE}
 
-How to judge:
+Two jobs, in this order.
+
+1. statement_reviews. Under "Statements to review" are sentences copied verbatim from the RFP that the first
+   reading did not quote. Give one entry for every one of them, using the number inside the brackets as id (so
+   [s12] has id 12). Use only the text of the statement.
+   - is_requirement false for: definitions, headings, instructions to the agency's own staff, descriptions of the
+     process, background, boilerplate, forms to fill in, cross-references, and anything that only repeats a
+     requirement already listed in the extraction.
+   - is_requirement true for anything the bidder must do, hold, deliver, accept or risk.
+   - text: one clear sentence in your own words, keeping every figure exactly. Empty when not a requirement.
+   - mandatory: true for must / shall / required / [M] / will be rejected; false for should / desired / [D].
+   Statements you mark as requirements count as requirements in everything that follows. Refer to them by their
+   bracket id (like s12) wherever an id is asked for.
+
+2. The judgement.
 - qualification_checks: for EVERY mandatory requirement about eligibility or qualification (set-aside, years in
   business, past performance and references, certifications, registration, insurance, key personnel, onsite
   attendance, location, clearances) say whether the profile meets it: met, unknown, at_risk or blocked.
@@ -108,7 +110,8 @@ How to judge:
 - deal_breakers: only hard blockers (required set-aside or clearance idiaz.io cannot hold, out-of-domain work,
   mandatory onsite staffing at scale, ...). Leave empty if there is none.
 - reasons: exactly the three strongest reasons for the final call.
-- evidence_ids: cite the ids given in the input (like r3, d2, a1, f_scope). Cite only ids that exist.
+- evidence_ids: cite the ids given in the input (like r3, d2, a1, f_scope, or s12 for a reviewed statement). Cite
+  only ids that exist.
 - would_change_mind: concrete facts which would flip the call.
 - open_questions: questions to ask the agency, built from ambiguities and genuine gaps. Before asking, look through
   the facts and requirements; never ask for something they already state.

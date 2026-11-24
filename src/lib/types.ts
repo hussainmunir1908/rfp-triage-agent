@@ -57,6 +57,16 @@ submission = how to respond: format, page limits, forms, attachments, communicat
 contract_terms = payment, liability, indemnity, term, termination, validity period, ownership;
 other = anything else.`;
 
+const WORK_CATEGORY_GUIDE = `Choose by what the buyer receives, not by the paperwork around it.
+software_development = custom software, apps, platforms, integrations, automation;
+it_services = IT operations, hosting, networking, help desk, managed IT, hardware support;
+data_or_ai = analytics, data engineering, machine learning, AI tools;
+compliance_or_audit = compliance, audit or assessment work;
+construction_or_facilities = building construction or repair, janitorial and custodial cleaning, grounds, maintenance, security guards, any work done by crews on site;
+manufacturing_or_supplies = buying physical goods, equipment, vehicles or supplies;
+professional_non_it = consulting, legal, training, research or communications not about software;
+other = anything else.`;
+
 export const workCategories = [
   "software_development",
   "it_services",
@@ -141,7 +151,7 @@ export const extractionSchema = z.object({
   requirements: z.array(requirementItemSchema),
   ambiguities: z.array(ambiguityItemSchema),
   figure_checks: z.array(figureCheckSchema),
-  work_category: z.enum(workCategories).describe("Best description of the work being procured"),
+  work_category: z.enum(workCategories).describe(WORK_CATEGORY_GUIDE),
 });
 
 export type Extraction = z.infer<typeof extractionSchema>;
@@ -150,31 +160,40 @@ export type Extraction = z.infer<typeof extractionSchema>;
  * Second pass over obligation sentences the first pass did not cover. Each statement is
  * a verbatim span chosen by code, so the model only classifies it and cannot invent a quote.
  */
-export const sweepSchema = z.object({
-  items: z.array(
-    z.object({
-      id: z.number().int().describe("The id of the statement"),
-      is_requirement: z
-        .boolean()
-        .describe("false for definitions, headings, instructions to the agency and boilerplate"),
-      category: z.enum(requirementCategories).describe(CATEGORY_GUIDE),
-      text: z.string().describe("The requirement in one clear sentence, empty if not a requirement"),
-      mandatory: z.boolean().describe("true if the statement says must / shall / required / [M]"),
-    }),
-  ),
+export const statementReviewSchema = z.object({
+  id: z.number().int().describe("The id of the statement"),
+  is_requirement: z
+    .boolean()
+    .describe("false for definitions, headings, instructions to the agency and boilerplate"),
+  category: z.enum(requirementCategories).describe(CATEGORY_GUIDE),
+  text: z.string().describe("The requirement in one clear sentence, empty if not a requirement"),
+  mandatory: z.boolean().describe("true if the statement says must / shall / required / [M]"),
 });
 
-export type Sweep = z.infer<typeof sweepSchema>;
+export type StatementReview = z.infer<typeof statementReviewSchema>;
 
 export const checkStatuses = ["met", "unknown", "at_risk", "blocked"] as const;
 export type CheckStatus = (typeof checkStatuses)[number];
 
-/* The judging step reasons over already-verified items by id. */
+/*
+ * The judging step reasons over already-verified items by id. It also classifies the statements the
+ * first pass did not quote, which saves a model call. That list comes first so the model settles what
+ * counts as a requirement before it judges them.
+ */
 export const judgementSchema = z.object({
+  statement_reviews: z
+    .array(statementReviewSchema)
+    .describe(
+      "One entry for every statement id given under 'Statements to review'; empty if none were given",
+    ),
   qualification_checks: z
     .array(
       z.object({
-        requirement_id: z.string().describe("Id of the mandatory eligibility requirement, like r4"),
+        requirement_id: z
+          .string()
+          .describe(
+            "Id of the mandatory eligibility requirement, like r4, or of a reviewed statement, like s12",
+          ),
         status: z
           .enum(checkStatuses)
           .describe(
