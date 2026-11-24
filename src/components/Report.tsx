@@ -278,12 +278,6 @@ export function Report({ report }: { report: TriageReport }) {
                 {c.unreviewed} could not be reviewed, so the requirements list may be incomplete.
               </p>
             ) : null}
-            {/lite/i.test(report.model) ? (
-              <p className="mt-2 border-l-2 border-amber pl-3 font-mono text-xs leading-relaxed text-amber">
-                The main model was busy, so part of this report was written by a lighter fallback model (
-                {report.model}). It tends to list fewer requirements; run it again later for a fuller read.
-              </p>
-            ) : null}
             <details className="mt-2">
               <summary className="label cursor-pointer text-ink-2">How the recall check worked here</summary>
               <p className="mt-2 font-mono text-xs leading-relaxed text-ink-3">
@@ -321,6 +315,23 @@ export function Report({ report }: { report: TriageReport }) {
         >
           <span className="label mt-0.5 shrink-0">Heads up</span>
           <span>Some dates in this document have already passed. They are marked in the key dates list.</span>
+        </div>
+      ) : null}
+
+      {/lite/i.test(report.model) ? (
+        <div
+          role="status"
+          className="flex items-start gap-3 rounded-[6px] border border-amber/30 bg-amber-wash p-4 text-sm text-amber"
+        >
+          <span className="label mt-0.5 shrink-0">Provisional</span>
+          <div>
+            <p className="font-semibold">A lighter fallback model wrote part of this report.</p>
+            <p className="mt-1 leading-relaxed">
+              The main models were busy or out of quota for the day, so {report.model} did some of the
+              reading. It can list fewer requirements and weigh unknowns differently, which can move the
+              score. Treat the call as provisional and run the document again when the main models are back.
+            </p>
+          </div>
         </div>
       ) : null}
 
