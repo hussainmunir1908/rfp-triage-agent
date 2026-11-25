@@ -139,20 +139,6 @@ button:disabled {
 
 /* ---------------------------------------------------------------- motion */
 
-@keyframes marquee {
-  from {
-    transform: translateX(0);
-  }
-  to {
-    transform: translateX(-50%);
-  }
-}
-.marquee {
-  display: flex;
-  width: max-content;
-  animation: marquee 60s linear infinite;
-}
-
 /* Two-frame bob, one pixel up and down, in hard steps like an old sprite. */
 @keyframes bob {
   0%,
@@ -351,7 +337,6 @@ button:disabled {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .marquee,
   .bob,
   .hop,
   .blink,

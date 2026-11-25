@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
 import { extractPages, openPdf } from "@/lib/pdf-client";
 import type { StreamEvent, TriageReport } from "@/lib/types";
-import { Footer, Header, Ticker } from "./Chrome";
+import { Footer, Header } from "./Chrome";
 import { EvidenceContext, type EvidenceTarget } from "./evidence-context";
 import { EvidenceViewer } from "./EvidenceViewer";
 import { Landing } from "./Landing";
@@ -200,7 +200,6 @@ export function Analyzer() {
           onNew={phase.name === "idle" || phase.name === "error" ? undefined : reset}
           busy={phase.name === "working"}
         />
-        {report ? null : <Ticker />}
 
         {phase.name === "idle" || phase.name === "error" ? (
           <Landing onFile={(f) => void run(f)} error={phase.name === "error" ? phase.message : null} />

@@ -33,43 +33,9 @@ export function Header({ onNew, busy }: { onNew?: () => void; busy?: boolean }) 
           >
             {busy ? "Cancel" : "Analyze another RFP"}
           </button>
-        ) : (
-          <span className="label hidden text-ink-3 md:block">internship challenge // 2026</span>
-        )}
+        ) : null}
       </div>
     </header>
-  );
-}
-
-const TICKER = [
-  "Every quote is looked up in the PDF by code",
-  "Missing information is written as not stated",
-  "Dates are re-read from the document, not trusted",
-  "Totals the RFP states are added up again",
-  "Click any page badge to open the source page",
-  "Two model calls per RFP, built for the free tier",
-  "Ambiguity is flagged, never quietly resolved",
-];
-
-/** The yellow strip under the header: true statements about how the agent works. */
-export function Ticker() {
-  const row = (
-    <div className="flex shrink-0 items-center" aria-hidden>
-      {TICKER.map((t) => (
-        <span key={t} className="label flex items-center whitespace-nowrap px-7 text-[16px] text-ink">
-          <span className="mr-3 inline-block h-[6px] w-[6px] bg-ink" />
-          {t}
-        </span>
-      ))}
-    </div>
-  );
-  return (
-    <div className="overflow-hidden border-b border-ink/10 bg-accent py-[7px]" role="presentation">
-      <div className="marquee">
-        {row}
-        {row}
-      </div>
-    </div>
   );
 }
 
@@ -80,10 +46,10 @@ export function Footer() {
         <div className="flex items-center gap-3">
           <Sprite art={GHOST} px="2px" />
           <p className="label text-ink-3">
-            bidlings // rfp triage for the idiaz.io internship challenge 2026
+            Bidlings<sup className="ml-0.5 text-[10px] align-super">TM</sup> // rfp triage
           </p>
         </div>
-        <p className="label text-ink-3">Three bidlings, one human</p>
+        <p className="label text-ink-3">{"Made by Hussain Munir"}</p>
       </div>
     </footer>
   );

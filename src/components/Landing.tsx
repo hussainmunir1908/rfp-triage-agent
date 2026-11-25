@@ -135,20 +135,6 @@ export function Landing({ onFile, error }: { onFile: (file: File) => void; error
             </article>
           ))}
         </div>
-
-        <div className="mt-4">
-          <div className="rounded-[6px] bg-night p-[clamp(20px,3vw,40px)] text-paper">
-            <p className="label text-accent">show the page</p>
-            <h3 className="mt-3 max-w-[24ch] text-[clamp(1.4rem,2.4vw,2.1rem)] font-semibold leading-tight tracking-tight">
-              Most AI tools ask you to trust them. This one opens the page.
-            </h3>
-            <p className="mt-4 font-mono text-[13px] leading-[1.8] text-paper/70">
-              A model can sound right and be wrong, which is the worst failure for a tool that decides where a
-              team spends a week. So every fact carries a page and a quote, code checks the quote exists, and
-              one click opens the PDF page with the passage outlined.
-            </p>
-          </div>
-        </div>
       </section>
     </>
   );
