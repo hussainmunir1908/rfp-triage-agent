@@ -13,7 +13,6 @@ import type {
 } from "@/lib/types";
 import { GHOST, ROBOT, STAR, ZZZ } from "./pixel/art";
 import { Sprite } from "./pixel/Sprite";
-import { StressTest } from "./StressTest";
 import { Badge, Card, EvidenceLink, Meter, Section } from "./ui";
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -78,7 +77,6 @@ export function ReportNav({ report }: { report: TriageReport }) {
       : []),
     ["score", "Fit score"],
     ["call", "The call"],
-    ["stress", "Stress test"],
     ...(report.ambiguities.length > 0 ? ([["ambiguous", "Ambiguous"]] as [string, string][]) : []),
     ["json", "Export"],
   ];
@@ -198,12 +196,6 @@ export function Report({ report }: { report: TriageReport }) {
               <p className="mt-4 text-[clamp(1rem,1.5vw,1.2rem)] leading-[1.6] text-paper/90">
                 {report.recommendation_summary}
               </p>
-              <a
-                href="#stress"
-                className="label mt-4 inline-block border-b-2 border-accent pb-0.5 text-accent hover:text-paper"
-              >
-                Stress-test this call {"->"}
-              </a>
               <p className="mt-4 font-mono text-xs leading-relaxed text-paper/50">
                 {report.file_name} &middot; {plural(report.page_count, "page")} &middot; read by{" "}
                 {report.model}
@@ -645,8 +637,6 @@ export function Report({ report }: { report: TriageReport }) {
           </div>
         </div>
       </Section>
-
-      <StressTest report={report} />
 
       {/* Ambiguities ---------------------------------------------------- */}
       {report.ambiguities.length > 0 ? (

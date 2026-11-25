@@ -52,7 +52,7 @@ export function Landing({ onFile, error }: { onFile: (file: File) => void; error
           </h1>
           <p className="mt-6 max-w-[56ch] font-mono text-[clamp(0.85rem,1.3vw,1rem)] leading-[1.75] text-ink-2">
             Three little pixel clerks read every page, list the dates and must-haves, score the fit against
-            idiaz.io and show the page behind every claim. Then you can break the call yourself.
+            idiaz.io and show the page behind every claim.
           </p>
         </div>
 
@@ -136,7 +136,7 @@ export function Landing({ onFile, error }: { onFile: (file: File) => void; error
           ))}
         </div>
 
-        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+        <div className="mt-4">
           <div className="rounded-[6px] bg-night p-[clamp(20px,3vw,40px)] text-paper">
             <p className="label text-accent">show the page</p>
             <h3 className="mt-3 max-w-[24ch] text-[clamp(1.4rem,2.4vw,2.1rem)] font-semibold leading-tight tracking-tight">
@@ -146,17 +146,6 @@ export function Landing({ onFile, error }: { onFile: (file: File) => void; error
               A model can sound right and be wrong, which is the worst failure for a tool that decides where a
               team spends a week. So every fact carries a page and a quote, code checks the quote exists, and
               one click opens the PDF page with the passage outlined.
-            </p>
-          </div>
-          <div className="rounded-[6px] border-2 border-ink bg-accent p-[clamp(20px,3vw,40px)] text-ink">
-            <p className="label">break the call</p>
-            <h3 className="mt-3 max-w-[24ch] text-[clamp(1.4rem,2.4vw,2.1rem)] font-semibold leading-tight tracking-tight">
-              A score is only as good as its assumptions. Flip them.
-            </h3>
-            <p className="mt-4 font-mono text-[13px] leading-[1.8] text-ink/80">
-              Every report ships with a stress test. Say you do hold the certification, or the agency waives
-              the deal-breaker, and the score and the call update on the spot. It also finds the shortest set
-              of changes that would reverse the call. No extra AI call, because the scoring rule is code.
             </p>
           </div>
         </div>
