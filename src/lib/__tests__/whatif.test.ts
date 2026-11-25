@@ -8,6 +8,7 @@ function report(opts: {
   checks?: CheckStatus[];
   dealBreakers?: number;
   category?: string;
+  thin?: boolean;
 }): TriageReport {
   const checks = opts.checks ?? [];
   const dealBreakers = opts.dealBreakers ?? 0;
@@ -16,11 +17,13 @@ function report(opts: {
     dealBreakers,
     workCategory: (opts.category ?? "software_development") as never,
     checks,
+    thin: opts.thin,
   });
   return {
     decision: d.decision,
     fit_score: d.fitScore,
     fast_no_bid: d.fastNoBid,
+    thin_document: opts.thin,
     work_category: opts.category ?? "software_development",
     factors: opts.impacts.map((impact, i) => ({ name: `f${i}`, impact, reason: "", refs: [] })),
     qualification_checks: checks.map((status, i) => ({
@@ -105,5 +108,14 @@ describe("findFlips after the reader changes something", () => {
     expect(evaluate(r, lowered).decision).toBe("NO_BID");
     const { flips } = findFlips(r, lowered, base);
     expect(flips[0].moves).toEqual([{ kind: "factor", index: 0, to: 2 }]);
+  });
+});
+
+describe("thin documents", () => {
+  it("keep the cap when the reader changes assumptions", () => {
+    const r = report({ impacts: [3, 3], thin: true });
+    expect(r.fit_score).toBe(6);
+    const next = apply(baseScenario(r), { kind: "factor", index: 0, to: 3 });
+    expect(evaluate(r, next).fitScore).toBe(6);
   });
 });

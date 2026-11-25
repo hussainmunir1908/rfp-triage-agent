@@ -5,6 +5,7 @@ import {
   MANY_UNKNOWN_CAP,
   ONE_UNKNOWN_CAP,
   OUT_OF_DOMAIN_CAP,
+  THIN_CAP,
   decide,
   type Decision,
 } from "./score";
@@ -61,6 +62,7 @@ export function evaluate(report: TriageReport, s: Scenario): Decision {
     dealBreakers: s.waived.filter((w) => !w).length,
     workCategory: report.work_category as Extraction["work_category"],
     checks: s.checks,
+    thin: report.thin_document,
   });
 }
 
@@ -168,6 +170,9 @@ export function explain(report: TriageReport, s: Scenario): string[] {
   const standing = s.waived.filter((w) => !w).length + s.checks.filter((c) => c === "blocked").length;
 
   if (d.fastNoBid) lines.push(`Out-of-domain work is capped at ${OUT_OF_DOMAIN_CAP} and is a fast no-bid.`);
+  if (report.thin_document) {
+    lines.push(`Very few requirements were found in the document, so the score is capped at ${THIN_CAP}.`);
+  }
   if (standing > 0) {
     lines.push(
       `${standing} deal-breaker${standing === 1 ? "" : "s"} standing: the score is capped at ${DEAL_BREAKER_CAP} and the call is no-bid.`,

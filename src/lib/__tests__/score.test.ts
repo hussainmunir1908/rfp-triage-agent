@@ -46,4 +46,12 @@ describe("decide", () => {
     expect(decide({ impacts: [-3, -3, -3], dealBreakers: 0, workCategory: "other" }).fitScore).toBe(0);
     expect(decide({ impacts: [3, 3, 3], dealBreakers: 0, workCategory: "other" }).fitScore).toBe(10);
   });
+
+  it("caps the score for a document that says almost nothing", () => {
+    const r = decide({ impacts: [3, 3], dealBreakers: 0, workCategory: "software_development", thin: true });
+    expect(r).toMatchObject({ fitScore: 6, decision: "BID" });
+    expect(decide({ impacts: [3, 3], dealBreakers: 0, workCategory: "software_development" }).fitScore).toBe(
+      10,
+    );
+  });
 });

@@ -4,7 +4,7 @@ import { dateTextInQuote, deadlineStatus, markSuperseded, resolveDate } from "./
 import { checkFigureClaims, unsupportedFigures } from "./figures";
 import { generateJson } from "./gemini";
 import { EXTRACTION_SYSTEM, JUDGE_SYSTEM, extractionPrompt, judgePrompt } from "./prompts";
-import { clamp, decide } from "./score";
+import { THIN_MIN_REQUIREMENTS, clamp, decide } from "./score";
 import { buildPageIndex, checkQuote } from "./verify";
 import {
   NOT_STATED,
@@ -334,11 +334,13 @@ export async function analyzeRfp(args: {
     ];
   });
 
+  const thin = requirements.length < THIN_MIN_REQUIREMENTS;
   const { fitScore, decision, fastNoBid } = decide({
     impacts: factors.map((f) => f.impact),
     dealBreakers: dealBreakers.length,
     workCategory: ex.work_category,
     checks: qualificationChecks.map((c) => c.status),
+    thin,
   });
 
   const proposalDates = deadlines.filter(
@@ -354,6 +356,7 @@ export async function analyzeRfp(args: {
     decision,
     fit_score: fitScore,
     fast_no_bid: fastNoBid,
+    thin_document: thin,
     summary: ex.summary.trim(),
     facts,
     deadlines,

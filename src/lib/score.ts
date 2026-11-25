@@ -14,6 +14,10 @@ export const ONE_UNKNOWN_CAP = 8;
 export const MANY_UNKNOWN_CAP = 7;
 export const MANY_UNKNOWN = 3;
 
+/** A document with almost no stated requirements cannot support a confident score. */
+export const THIN_CAP = 6;
+export const THIN_MIN_REQUIREMENTS = 5;
+
 const OUT_OF_DOMAIN: Extraction["work_category"][] = [
   "construction_or_facilities",
   "manufacturing_or_supplies",
@@ -35,6 +39,8 @@ export function decide(args: {
   workCategory: Extraction["work_category"];
   /** Result of each mandatory qualification check against the company profile. */
   checks?: CheckStatus[];
+  /** Too few requirements were found for the score to mean much, as with a one-page notice. */
+  thin?: boolean;
 }): Decision {
   const checks = args.checks ?? [];
   const unknown = checks.filter((c) => c === "unknown").length;
@@ -48,6 +54,7 @@ export function decide(args: {
   if (unknown >= MANY_UNKNOWN) fitScore = Math.min(fitScore, MANY_UNKNOWN_CAP);
   else if (unknown > 0) fitScore = Math.min(fitScore, ONE_UNKNOWN_CAP);
   if (dealBreakers > 0) fitScore = Math.min(fitScore, DEAL_BREAKER_CAP);
+  if (args.thin) fitScore = Math.min(fitScore, THIN_CAP);
   if (fastNoBid) fitScore = Math.min(fitScore, OUT_OF_DOMAIN_CAP);
 
   const bid = dealBreakers === 0 && !fastNoBid && fitScore >= BID_THRESHOLD;

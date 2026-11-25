@@ -123,7 +123,8 @@ Design decisions:
 - **The decision rule lives in code.** The model proposes factors with an impact from -3 to +3. Code adds them
   to a base score of 5 and applies the rules: any unconfirmed mandatory qualification caps the score at 8 (7 when
   three or more are open), a deal-breaker or a blocked qualification caps it at 3, construction or goods caps it
-  at 2, and a bid needs a score of 6 or more. The score is therefore reproducible and easy to explain.
+  at 2, a document with fewer than five stated requirements (a one-page notice, say) caps it at 6 and is flagged as
+  thin, and a bid needs a score of 6 or more. The score is therefore reproducible and easy to explain.
 - **Structured output.** The model is constrained to a JSON schema (defined once with zod and used for both the
   request and validation), so the UI and the API always receive the same shape.
 

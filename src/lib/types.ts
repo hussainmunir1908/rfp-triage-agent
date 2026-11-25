@@ -353,6 +353,8 @@ export interface TriageReport {
   decision: "BID" | "NO_BID";
   fit_score: number;
   fast_no_bid: boolean;
+  /** Too few requirements were found, so the score is capped and provisional. */
+  thin_document?: boolean;
   summary: string;
   facts: ReportFact[];
   deadlines: ReportDeadline[];

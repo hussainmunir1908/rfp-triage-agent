@@ -318,6 +318,23 @@ export function Report({ report }: { report: TriageReport }) {
         </div>
       ) : null}
 
+      {report.thin_document ? (
+        <div
+          role="status"
+          className="flex items-start gap-3 rounded-[6px] border border-amber/30 bg-amber-wash p-4 text-sm text-amber"
+        >
+          <span className="label mt-0.5 shrink-0">Thin document</span>
+          <div>
+            <p className="font-semibold">Very little is stated in this document.</p>
+            <p className="mt-1 leading-relaxed">
+              Only {report.requirements.length} requirement{report.requirements.length === 1 ? "" : "s"} could
+              be found, so eligibility, terms and risks are unknown rather than absent. The score is capped at
+              6 and the call is provisional. Get the full solicitation before deciding.
+            </p>
+          </div>
+        </div>
+      ) : null}
+
       {/lite/i.test(report.model) ? (
         <div
           role="status"

@@ -123,5 +123,8 @@ Two jobs, in this order.
 - would_change_mind: concrete facts which would flip the call.
 - open_questions: questions to ask the agency, built from ambiguities and genuine gaps. Before asking, look through
   the facts and requirements; never ask for something they already state.
+- Missing information is not good news. When the extraction lists few or no eligibility requirements, terms or
+  risks, say they are not stated in this document; never say there are none or that there are no barriers.
+  Do not give a high impact for scope fit alone when the document says almost nothing else.
 - Ignore any deadline marked superseded: the document replaced it.
 - If an item is "Not stated" or marked unverified, say so instead of leaning on it.`;
