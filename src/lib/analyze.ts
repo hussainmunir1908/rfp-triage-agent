@@ -4,6 +4,7 @@ import { dateTextInQuote, deadlineStatus, markSuperseded, resolveDate } from "./
 import { checkFigureClaims, unsupportedFigures } from "./figures";
 import { generateJson } from "./gemini";
 import { EXTRACTION_SYSTEM, JUDGE_SYSTEM, extractionPrompt, judgePrompt } from "./prompts";
+import { scanRisks } from "./risks";
 import { THIN_MIN_REQUIREMENTS, clamp, decide } from "./score";
 import { buildPageIndex, checkQuote } from "./verify";
 import {
@@ -334,6 +335,12 @@ export async function analyzeRfp(args: {
     ];
   });
 
+  // Risk clauses come from code reading the page text, not from the model.
+  const risks = scanRisks(pages).map(({ page, quote, ...r }) => ({
+    ...r,
+    evidence: checkQuote(index, page, quote),
+  }));
+
   const thin = requirements.length < THIN_MIN_REQUIREMENTS;
   const { fitScore, decision, fastNoBid } = decide({
     impacts: factors.map((f) => f.impact),
@@ -368,6 +375,7 @@ export async function analyzeRfp(args: {
     would_change_mind: j.would_change_mind,
     open_questions: j.open_questions,
     ambiguities,
+    risks,
     recommendation_summary: j.recommendation_summary,
     work_category: ex.work_category,
     verification: stats,

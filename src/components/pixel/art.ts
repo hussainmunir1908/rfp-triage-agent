@@ -156,6 +156,12 @@ export const TICK: Art = ["......mm", ".....mmm", "mm..mmm.", "mmmmmmm.", ".mmmm
 
 export const STAR: Art = ["..y..", "..y..", "yyyyy", "..y..", "..y.."];
 
+/** A milestone flag for the timeline. */
+export const FLAG: Art = ["kyyyy.", "kyyyyy", "kyyyy.", "k.....", "k.....", "k.....", "k.....", "k....."];
+
+/** A missed date. */
+export const CROSS: Art = ["c.....c", ".c...c.", "..c.c..", "...c...", "..c.c..", ".c...c.", "c.....c"];
+
 export const ZZZ: Art = ["zzzz.....", "...z.zzz.", "..z....z.", ".z....z..", "zzzz.zzz."];
 
 /* Night city --------------------------------------------------------- */

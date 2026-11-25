@@ -319,6 +319,14 @@ export interface ReportAmbiguity {
   source?: "figures";
 }
 
+export interface ReportRisk {
+  rule: string;
+  title: string;
+  severity: "high" | "medium" | "info";
+  why: string;
+  evidence: Evidence;
+}
+
 export interface EvidenceRef {
   id: string;
   label: string;
@@ -366,6 +374,8 @@ export interface TriageReport {
   would_change_mind: string[];
   open_questions: string[];
   ambiguities: ReportAmbiguity[];
+  /** Risk clauses found by code (liability, penalties, payment terms, bonds, and so on). */
+  risks?: ReportRisk[];
   recommendation_summary: string;
   work_category: string;
   verification: VerificationStats;

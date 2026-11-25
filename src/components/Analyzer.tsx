@@ -8,7 +8,7 @@ import { Footer, Header, Ticker } from "./Chrome";
 import { EvidenceContext, type EvidenceTarget } from "./evidence-context";
 import { EvidenceViewer } from "./EvidenceViewer";
 import { Landing } from "./Landing";
-import { Report, ReportNav } from "./Report";
+import { Report } from "./Report";
 import { STAGE_ORDER, Working, type StageKey } from "./Working";
 
 interface WorkingPhase {
@@ -219,12 +219,9 @@ export function Analyzer() {
         ) : null}
 
         {report ? (
-          <>
-            <ReportNav report={report} />
-            <main className="frame pb-20 pt-5 sm:pt-6">
-              <Report report={report} />
-            </main>
-          </>
+          <main className="frame pb-20 pt-4 sm:pt-5">
+            <Report report={report} />
+          </main>
         ) : null}
 
         <div className="flex-1" />

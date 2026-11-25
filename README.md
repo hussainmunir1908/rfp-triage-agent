@@ -67,6 +67,28 @@ browser and marked **Expired N days ago**, **Due today** or **In N days**. If ev
 passed, the report shows a clear "This RFP has already closed" banner, so nobody spends time on something
 that cannot be bid on. The fit assessment is still shown, because it remains useful for similar future work.
 
+### 3. Risk clause radar
+
+Some of the clauses that hurt a small studio most are not "requirements" at all: an uncapped liability, a service
+credit of up to 25% a month, payment after 60 days, a 100% performance bond. `src/lib/risks.ts` reads the page text
+sentence by sentence and finds them with plain, readable rules. No model is involved, so it cannot invent a clause.
+
+- It scans for liability caps and carve-outs, indemnity, service credits and penalties, termination, IP ownership,
+  payment terms and holdbacks, insurance minimums, bonds, onsite work, breach costs and always-on service levels.
+- Each finding has a severity, a one-line reason, the verbatim sentence and a page badge that opens the PDF page with
+  the clause highlighted. Quotes go through the same check as every other claim.
+- Forms and lists of FAR clause titles are skipped, and a percentage that is clearly an availability target (99.5%)
+  is not read as the size of a credit. The rules look for wording, so a clause phrased differently is not found, and
+  the tab says so.
+- On the sample RFPs it finds, for example, Port Alder's liability cap whose exceptions include indemnity and data
+  breach, its 10% holdback and 5% service credits, Larkspur's 100% performance bond, and Tulsa's breach-cost clause.
+
+### 4. Pixel timeline
+
+Every dated item sits on one pixel-art track, with a robot marking today: a flag for dates ahead, a tick for what has
+happened and a cross for deadlines already missed. It runs left to right on wide screens and top to bottom on phones.
+Dates the document replaced (struck through, "revised by Addendum") are kept off the track and shown as replaced.
+
 ## Interface
 
 The look is its own: cool paper, deep navy ink, one arcade-yellow accent, Schibsted Grotesk for text, JetBrains
@@ -74,7 +96,9 @@ Mono for detail and Jersey 10 for the pixel labels. The characters (Scribe the r
 and the night-street scenery are drawn as text grids in `src/components/pixel/art.ts` and rendered as SVG, so they
 stay sharp at any size. While a PDF is processed, the three bidlings work at three stations (read, check, judge), a
 tile per page lights up as the document is read, and a magnifier sweeps the tiles while quotes are checked. The report
-fills the screen with a small margin and adapts from phones to ultrawide displays.
+opens on the call, four tiles (due date, must-haves, risk clauses, evidence) and a single row of tabs (Overview,
+Dates, Requirements, Risks, Fit score, Evidence), so one concern is on screen at a time. It fills the screen with a
+small margin and adapts from phones to ultrawide displays.
 
 ## How it works
 
@@ -183,7 +207,8 @@ src/
     Analyzer.tsx           upload, progress and state
     Landing.tsx            first screen: drop zone, scene, how it works
     Working.tsx            the loading view: three stations, page tiles, live log
-    Report.tsx             the report sections
+    Report.tsx             the call, notices, summary tiles and tabs
+    report/                one component per tab (Overview, Timeline, Requirements, Risks, Fit, Evidence)
     EvidenceViewer.tsx     PDF page with highlighted quote
     Chrome.tsx             header, ticker and footer
     pixel/                 pixel art as text grids, sprite renderer and the landscape
@@ -196,6 +221,7 @@ src/
     dates.ts               date parsing, correction, superseded and expiry status
     score.ts               the decision rule
     matrix.ts              CSV compliance matrix
+    risks.ts               risk clause radar
     prompts.ts             prompts and the company profile
     types.ts               schemas and report types
     pdf-text.ts            joins pdf.js text items into page text
