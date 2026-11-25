@@ -1,104 +1,54 @@
 # Bidlings: RFP triage agent
 
-Upload a government RFP (PDF) and get back a bid / no-bid recommendation in about a minute. Every fact in the
-report links to the page it came from, and the quotes behind those facts are checked against the PDF by code.
+Upload a government RFP (PDF) and get a bid / no-bid recommendation in about a minute. Every fact in the report
+links to the page it came from, and the quotes behind those facts are checked against the PDF by code.
 
-Built for the idiaz.io internship challenge.
+Built by **Hussain Munir** for the idiaz.io internship challenge.
 
 - **Live app:** https://rfp-triage-agent.vercel.app
 - **Code:** https://github.com/hussainmunir1908/rfp-triage-agent
-- **Stack:** Next.js (App Router, TypeScript), Tailwind CSS, Google Gemini, deployed on Vercel
+- **Stack:** Next.js (App Router, TypeScript), Tailwind CSS, Google Gemini, Vercel
 
 ## What it does
 
-1. **Reads the whole document.** The PDF is parsed in the browser, page by page, and tagged `=== PAGE n ===`.
-2. **Extracts facts.** Agency, scope, contract type and value, place of performance, how to submit.
-3. **Finds every date.** Proposal deadline, Q&A cut-off, site visits, award and start dates, as real calendar dates.
-4. **Lists the must-haves.** Eligibility (set-asides, certifications, clearances, past performance, staffing,
-   insurance, location), what the solution must do, security and hosting rules, service levels and acceptance
-   thresholds, how to submit, and contract terms that put cost or risk on the contractor.
-5. **Checks eligibility** against the idiaz.io profile, one line per mandatory qualification: met, confirm, at risk or
-   blocked.
-6. **Scores the fit** from 0 to 10, with a one-line reason for each factor.
-7. **Makes the call.** Bid or no-bid, the three strongest reasons, deal-breakers, what would change the call, and
+1. **Reads the whole document**, page by page, in the browser.
+2. **Extracts facts and dates**: agency, scope, contract type and value, and every date as a real calendar date.
+3. **Lists the must-haves**: eligibility, what the solution must do, security and hosting rules, service levels,
+   submission rules and contract terms that put cost or risk on the contractor.
+4. **Checks eligibility** against the idiaz.io profile: met, confirm, at risk or blocked.
+5. **Scores the fit** from 0 to 10, with a one-line reason per factor.
+6. **Makes the call**: bid or no-bid, the three strongest reasons, deal-breakers, what would change the call and
    questions to ask the agency.
 
-Ground rules the agent follows: only the document is used, missing information is written as "Not stated",
-ambiguous passages are flagged instead of quietly resolved, and work that clearly is not ours (such as
-construction) gets a fast no-bid.
+Ground rules: only the document is used, missing information is written as "Not stated", ambiguity is flagged
+instead of resolved, and clearly out-of-domain work (such as construction) gets a fast no-bid.
 
-The same report is available as JSON from the UI (download or copy) and from the API, and as a CSV compliance
-matrix (one row per requirement, with page, quote, status and empty Owner and Notes columns for the bid team).
+The report is also available as JSON (download, copy or API) and as a CSV compliance matrix with one row per
+requirement.
 
 ## Bonus features
 
-### 1. Evidence-linked report
-
-Language models can sound right while being wrong, which is the worst failure for a tool that decides where a
-team spends a week of proposal writing. So the agent does not ask to be trusted; it shows its work.
-
-- The model must return, for every fact, date and requirement, the **page number and a verbatim quote**.
-- Plain code then looks for that quote in the extracted text of the PDF (`src/lib/verify.ts`). It tries an
-  exact match on the cited page, then the neighbouring pages, then a page-spanning match, then a close
-  match that tolerates extraction noise. Anything it cannot find is shown as **unverified** instead of being
-  dropped quietly.
-- Dates get a second check (`src/lib/dates.ts`): the date text is re-parsed from the document itself and
-  compared with the model's own conversion. If they disagree, the document wins and the report says it
-  corrected the date. A date the document itself replaced (struck through, "revised by Addendum No. 1") is shown
-  as **replaced**, not as a live deadline, and does not count when deciding whether the RFP has closed.
-- A quote existing does not prove it supports the claim, so figures are checked too (`src/lib/figures.ts`): if an
-  item says "$2M" and the quote does not contain it, the item is flagged.
-- Totals and percentages the document states about itself are re-added by code. The model only copies the
-  numbers; if "about 72%" sits next to a table that adds up to 79%, the report flags the contradiction.
-- Recall is checked as well as accuracy (`src/lib/coverage.ts`). Code finds every sentence that sounds like an
-  obligation (must, shall, required, [M], numbered requirement ids, "the Contractor will ...") and lists the ones no
-  extracted item quotes. Besides must / shall / required, it also looks for "may not", "grounds for", "terminate",
-  "non-responsive" and deadlines in days. Those go to the judging call, which can only classify them; it cannot invent a quote.
-  The report states how many obligation statements were accounted for.
-- In the UI, every item has a small page badge. Clicking it opens the **original PDF page** with the quoted
-  passage outlined, so a reviewer can confirm any claim in a couple of seconds.
-- The header shows how many cited quotes were found, for example "24 of 24 cited quotes found in the document". This
-  means the quote exists, not that the reading is right; the page badge is how to confirm that.
-
-### 2. Expired-deadline flags
-
-Public RFPs are often found after they have closed. Each date is compared with today's date in the viewer's
-browser and marked **Expired N days ago**, **Due today** or **In N days**. If every proposal deadline has
-passed, the report shows a clear "This RFP has already closed" banner, so nobody spends time on something
-that cannot be bid on. The fit assessment is still shown, because it remains useful for similar future work.
-
-### 3. Risk clause radar
-
-Some of the clauses that hurt a small studio most are not "requirements" at all: an uncapped liability, a service
-credit of up to 25% a month, payment after 60 days, a 100% performance bond. `src/lib/risks.ts` reads the page text
-sentence by sentence and finds them with plain, readable rules. No model is involved, so it cannot invent a clause.
-
-- It scans for liability caps and carve-outs, indemnity, service credits and penalties, termination, IP ownership,
-  payment terms and holdbacks, insurance minimums, bonds, onsite work, breach costs and always-on service levels.
-- Each finding has a severity, a one-line reason, the verbatim sentence and a page badge that opens the PDF page with
-  the clause highlighted. Quotes go through the same check as every other claim.
-- Forms and lists of FAR clause titles are skipped, and a percentage that is clearly an availability target (99.5%)
-  is not read as the size of a credit. The rules look for wording, so a clause phrased differently is not found, and
-  the tab says so.
-- On the sample RFPs it finds, for example, Port Alder's liability cap whose exceptions include indemnity and data
-  breach, its 10% holdback and 5% service credits, Larkspur's 100% performance bond, and Tulsa's breach-cost clause.
-
-### 4. Pixel timeline
-
-Every dated item sits on one pixel-art track, with a robot marking today: a flag for dates ahead, a tick for what has
-happened and a cross for deadlines already missed. It runs left to right on wide screens and top to bottom on phones.
-Dates the document replaced (struck through, "revised by Addendum") are kept off the track and shown as replaced.
+1. **Evidence-linked report.** The model must return a page number and a verbatim quote for every fact, date and
+   requirement. Code then finds each quote in the PDF text (`src/lib/verify.ts`) and marks anything it cannot find as
+   unverified. Dates are re-parsed from the document, stated totals are re-added, figures are checked against their
+   quotes, and obligation sentences that nobody quoted are handed back for review (`src/lib/coverage.ts`). Every
+   item has a page badge that opens the real PDF page with the passage outlined.
+2. **Expired-deadline flags.** Each date is compared with today and marked **Expired**, **Due today** or **In N
+   days**. If every proposal deadline has passed, the report opens with an "already closed" banner.
+3. **Risk clause radar.** `src/lib/risks.ts` scans the text with plain rules for the clauses that hurt a small
+   studio most: uncapped liability, indemnity, service credits and penalties, long payment terms, bonds, onsite
+   work and more. No model is involved, so it cannot invent a clause. Each finding has a severity, the quote and a
+   page badge.
+4. **Pixel timeline.** Every dated item sits on one pixel-art track with a marker for today: a flag for dates
+   ahead, a tick for what has happened and a cross for deadlines already missed.
 
 ## Interface
 
-The look is its own: cool paper, deep navy ink, one arcade-yellow accent, Schibsted Grotesk for text, JetBrains
-Mono for detail and Jersey 10 for the pixel labels. The characters (Scribe the robot, Hoot the owl and Boo the ghost)
-and the night-street scenery are drawn as text grids in `src/components/pixel/art.ts` and rendered as SVG, so they
-stay sharp at any size. While a PDF is processed, the three bidlings work at three stations (read, check, judge), a
-tile per page lights up as the document is read, and a magnifier sweeps the tiles while quotes are checked. The report
-opens on the call, four tiles (due date, must-haves, risk clauses, evidence) and a single row of tabs (Overview,
-Dates, Requirements, Risks, Fit score, Evidence), so one concern is on screen at a time. It fills the screen with a
-small margin and adapts from phones to ultrawide displays.
+Schibsted Grotesk for text, JetBrains Mono for detail and Jersey 10 for pixel labels, on cool paper with navy ink
+and one yellow accent. The three characters (Scribe the robot, Hoot the owl, Boo the ghost) and the night-street
+scenery are text grids in `src/components/pixel/art.ts`, rendered as SVG. The report opens on the call and four
+summary tiles, with tabs for Overview, Dates, Requirements, Risks, Fit score and Evidence. It adapts from phones to
+ultrawide screens.
 
 ## How it works
 
@@ -115,39 +65,27 @@ report + PDF viewer                             3. Judge      Gemini classifies 
                                                 4. Decide     code turns factor impacts into score + call
 ```
 
-Design decisions:
-
-- **Parse in the browser.** Vercel limits request bodies to about 4.5 MB, and a 100-page RFP can exceed that.
-  Sending only the extracted text (a few hundred KB) avoids the limit and keeps the PDF on the user's machine.
-  The same text-based path means the viewer can render the real pages for evidence.
-- **One long-context call, not chunking.** Gemini reads the entire document at once, so a requirement in an
-  appendix can be weighed against the scope on page 3. Chunking tends to lose exactly those links.
-- **The judge never sees the PDF.** It reasons over the already verified extraction, which keeps it from
-  inventing facts and makes its citations point at items the reader can open.
-- **Unknown is not the same as met.** The company profile does not state years in business, past projects,
-  certifications or insurance. The judge must mark each mandatory qualification as met, confirm, at risk or
-  blocked, and cannot call something met unless the profile says so. Items marked confirm are listed in the report
-  as things to check before bidding.
-- **The decision rule lives in code.** The model proposes factors with an impact from -3 to +3. Code adds them
-  to a base score of 5 and applies the rules: any unconfirmed mandatory qualification caps the score at 8 (7 when
-  three or more are open), a deal-breaker or a blocked qualification caps it at 3, construction or goods caps it
-  at 2, a document with fewer than five stated requirements (a one-page notice, say) caps it at 6 and is flagged as
-  thin, and a bid needs a score of 6 or more. The score is therefore reproducible and easy to explain.
-- **Structured output.** The model is constrained to a JSON schema (defined once with zod and used for both the
-  request and validation), so the UI and the API always receive the same shape.
+- **Parse in the browser.** Vercel limits request bodies to about 4.5 MB. Sending only the extracted text avoids
+  that, keeps the PDF on the user's machine and lets the viewer render the real pages.
+- **One long-context call, not chunking**, so a requirement in an appendix can be weighed against the scope.
+- **The judge never sees the PDF.** It reasons over the verified extraction, so it cannot invent facts.
+- **Unknown is not met.** The profile does not state years in business, past projects, certifications or insurance,
+  so those show as "confirm".
+- **The decision rule lives in code** (`src/lib/score.ts`). The model proposes factors worth -3 to +3, added to a
+  base of 5. An unconfirmed qualification caps the score at 8 (7 when three or more are open), a deal-breaker or
+  blocked qualification caps it at 3, out-of-domain work at 2, and a document with fewer than five stated
+  requirements at 6. A bid needs 6 or more.
+- **Structured output.** One zod schema defines both the model request and the validation.
 
 ## Models and free-tier limits
 
-The free Gemini tier allows only a small number of requests per day for each model (about 20 at the time of
-writing), and individual models are sometimes overloaded. The agent therefore uses **two model calls per RFP**
-(one to extract, one to review and judge) and keeps a pool of models in
-`src/lib/gemini.ts`. When a model reports an exhausted daily quota it is skipped,
-and the next one is used. Overloaded models are retried in short sweeps. Repeating the same document is served
-from a small in-memory cache and costs no request. If every model is exhausted the UI says so plainly.
+The free Gemini tier allows about 20 requests per day per model, so the agent makes **two model calls per RFP**
+and keeps a pool of models in `src/lib/gemini.ts`. A model with an exhausted quota is skipped, overloaded models
+are retried, and repeating a document is served from an in-memory cache. If a lighter fallback model wrote part of
+the report, the UI says so.
 
-Set `GEMINI_MODELS` to a comma-separated list to change the pool, and `GEMINI_THINKING_LEVEL`
-(`MINIMAL`, `LOW`, `MEDIUM`, `HIGH`) to trade speed for depth. The default is `LOW`: in testing it was about three
-times faster than `MEDIUM` with similar extraction quality.
+Set `GEMINI_MODELS` (comma-separated) to change the pool and `GEMINI_THINKING_LEVEL` (`MINIMAL`, `LOW`, `MEDIUM`,
+`HIGH`) to trade speed for depth. The default is `LOW`.
 
 ## Run it locally
 
@@ -155,11 +93,11 @@ Requires Node 20 or newer and a free Gemini API key from [Google AI Studio](http
 
 ```bash
 npm install
-cp .env.example .env.local     # then put your key in .env.local
+echo "GEMINI_API_KEY=your-key" > .env.local
 npm run dev
 ```
 
-Open http://localhost:3000 and drop in a PDF.
+Open http://localhost:3000 and drop in a PDF. `npm test` runs the unit tests.
 
 | Variable                | Required | Purpose                                         |
 | ----------------------- | -------- | ----------------------------------------------- |
@@ -169,76 +107,54 @@ Open http://localhost:3000 and drop in a PDF.
 
 ## API
 
-`POST /api/analyze`
-
-- `application/json` with `{ "fileName": "rfp.pdf", "pages": ["text of page 1", "..."] }`
-- or `multipart/form-data` with a `file` field containing a PDF of up to 4 MB
-
-Add `?stream=1` to receive progress as newline-delimited JSON events (`stage`, `result`, `error`). Without it,
-the response is the final report as JSON.
+`POST /api/analyze` takes `application/json` with `{ "fileName": "rfp.pdf", "pages": ["page 1 text", "..."] }`, or
+`multipart/form-data` with a `file` field (PDF, up to 4 MB). Add `?stream=1` for progress as newline-delimited JSON
+events; without it the response is the final report.
 
 ```jsonc
 {
   "decision": "BID" | "NO_BID",
   "fit_score": 0,                       // 0 to 10
-  "deadlines": [{ "what": "", "date": "2025-04-30", "status": "expired", "superseded": false, "evidence": { "page": 2, "quote": "", "verified": true } }],
+  "deadlines": [{ "what": "", "date": "2025-04-30", "status": "expired", "evidence": { "page": 2, "quote": "", "verified": true } }],
   "requirements": [{ "category": "", "text": "", "mandatory": true, "evidence": {} }],
   "qualification_checks": [{ "requirement": "", "status": "met" | "unknown" | "at_risk" | "blocked", "note": "" }],
   "reasons": [{ "text": "", "refs": [] }],   // the three strongest
-  "factors": [], "deal_breakers": [], "would_change_mind": [], "open_questions": [],
+  "risks": [], "factors": [], "deal_breakers": [], "would_change_mind": [], "open_questions": [],
   "ambiguities": [], "summary": "", "facts": [], "verification": {}, "coverage": {}
 }
 ```
 
 ## Deploy
 
-The app is a standard Next.js project. On Vercel, import the repository and add `GEMINI_API_KEY` under
-Project Settings, Environment Variables. The analysis route sets `maxDuration = 300`, which the Hobby plan allows
-with Fluid Compute.
+Import the repository on Vercel and add `GEMINI_API_KEY` under Project Settings, Environment Variables. The
+analysis route sets `maxDuration = 300`, which the Hobby plan allows with Fluid Compute.
 
 ## Project layout
 
 ```
 src/
-  app/
-    api/analyze/route.ts   API route (JSON, multipart, streaming)
-    page.tsx               entry page
-  components/
-    Analyzer.tsx           upload, progress and state
-    Landing.tsx            first screen: drop zone, scene, how it works
-    Working.tsx            the loading view: three stations, page tiles, live log
-    Report.tsx             the call, notices, summary tiles and tabs
-    report/                one component per tab (Overview, Timeline, Requirements, Risks, Fit, Evidence)
-    EvidenceViewer.tsx     PDF page with highlighted quote
-    Chrome.tsx             header, ticker and footer
-    pixel/                 pixel art as text grids, sprite renderer and the landscape
+  app/api/analyze/route.ts   API route (JSON, multipart, streaming)
+  components/                upload and progress (Analyzer, Landing, Working), Report and report/ tabs,
+                             EvidenceViewer, pixel/ art and sprites
   lib/
-    analyze.ts             the pipeline: extract, verify, judge, decide
-    gemini.ts              model pool, structured output, quota handling
-    verify.ts              quote and page checking
-    figures.ts             figure support check and self-contradicting totals
-    coverage.ts            finds obligation sentences nobody quoted
-    dates.ts               date parsing, correction, superseded and expiry status
-    score.ts               the decision rule
-    matrix.ts              CSV compliance matrix
-    risks.ts               risk clause radar
-    prompts.ts             prompts and the company profile
-    types.ts               schemas and report types
-    pdf-text.ts            joins pdf.js text items into page text
-    pdf-client.ts          browser PDF reading and page rendering
-    pdf-server.ts          PDF text extraction for the multipart API
-    cache.ts               in-memory result cache
+    analyze.ts               the pipeline: extract, verify, judge, decide
+    gemini.ts                model pool, structured output, quota handling
+    prompts.ts               prompts and the company profile
+    verify.ts, figures.ts,   quote and page checks, figure support, obligation coverage,
+    coverage.ts, dates.ts    date parsing and expiry
+    risks.ts, matrix.ts      risk clause radar, CSV compliance matrix
+    score.ts                 the decision rule
+    types.ts                 schemas and report types
+    pdf-*.ts, cache.ts       PDF text extraction, in-memory cache
 ```
 
 ## Limits
 
-- Text-based PDFs only. Scanned documents need OCR, which is out of scope.
-- The coverage check hands at most 120 uncovered statements to the judging call. When there are more, those with
-  strong obligation words go first and the rest are spread across all pages, and the report says how many were not
-  reviewed. It only finds obligations that contain cue words, so a requirement worded without them can be missed.
-- When the main models are overloaded the request can fall back to a lighter model. It lists noticeably fewer
-  requirements, and the report says when that happened.
-- The company profile is fixed in `src/lib/prompts.ts`. Set-asides are treated as unknown unless the document
-  says otherwise.
+- Text-based PDFs only. Scanned documents would need OCR.
+- The coverage check hands at most 120 uncovered statements to the judge and only finds obligations that use cue
+  words (must, shall, required and similar), so a requirement worded without them can be missed.
+- The fallback model lists noticeably fewer requirements, and the report says when it was used.
+- The company profile is fixed in `src/lib/prompts.ts`. Set-asides are treated as unknown unless the document says
+  otherwise.
 - A language model still reads the document. The evidence checks make mistakes visible; they do not make the
   extraction perfect, so treat the report as a fast first pass for a human to confirm.

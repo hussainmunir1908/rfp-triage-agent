@@ -11,9 +11,10 @@ const mono = JetBrains_Mono({ variable: "--f-mono", subsets: ["latin"], weight: 
 const pixel = Jersey_10({ variable: "--f-pixel", subsets: ["latin"], weight: "400" });
 
 export const metadata: Metadata = {
-  title: "Bidlings // RFP triage",
+  title: "Bidlings // RFP triage | Hussain Munir",
   description:
-    "Upload a government RFP and get an evidence-linked bid or no-bid call you can stress-test before you commit a week to it.",
+    "Upload a government RFP and get an evidence-linked bid or no-bid call, with the page behind every claim.",
+  authors: [{ name: "Hussain Munir" }],
 };
 
 export const viewport: Viewport = {

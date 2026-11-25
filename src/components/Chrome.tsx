@@ -46,7 +46,7 @@ export function Footer() {
         <div className="flex items-center gap-3">
           <Sprite art={GHOST} px="2px" />
           <p className="label text-ink-3">
-            Bidlings<sup className="ml-0.5 text-[10px] align-super">TM</sup> // rfp triage
+            Bidlings<sup className="ml-0.5 text-[10px] align-super">TM</sup> {"// rfp triage"}
           </p>
         </div>
         <p className="label text-ink-3">{"Made by Hussain Munir"}</p>
